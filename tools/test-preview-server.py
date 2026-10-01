@@ -6,6 +6,7 @@ import importlib.util
 import os
 import threading
 import unittest
+from unittest import mock
 
 spec = importlib.util.spec_from_file_location(
     'preview_server', os.path.join(os.path.dirname(__file__), 'preview-server.py')
@@ -57,7 +58,9 @@ class PreviewServerTests(unittest.TestCase):
                 self.assert_uncached(headers)
 
     def test_html_and_assets_are_never_cacheable(self):
-        for path in ('/demo/', '/demo/demo.css', '/common.js', '/content/overlay.js'):
+        for path in ('/demo/', '/demo/demo.css', '/common.js', '/content/overlay.js',
+                     '/popup/popup.html', '/popup/popup.css', '/popup/popup.js',
+                     '/demo/demo-popup-shim.js'):
             with self.subTest(path=path):
                 status, headers, body = self.request(path + '?v=' + preview.VERSION)
                 self.assertEqual(status, 200)
@@ -69,13 +72,30 @@ class PreviewServerTests(unittest.TestCase):
             {'If-Modified-Since': 'Fri, 01 Jan 2100 00:00:00 GMT'},
             {'If-None-Match': '*'}
         )
-        for path in ('/demo/', '/common.js', '/content/overlay.js'):
+        for path in ('/demo/', '/common.js', '/content/overlay.js',
+                     '/popup/popup.html', '/popup/popup.js', '/demo/demo-popup-shim.js'):
             for conditional_headers in conditions:
                 with self.subTest(path=path, condition=conditional_headers):
                     status, headers, body = self.request(path, headers=conditional_headers)
                     self.assertEqual(status, 200)
                     self.assertTrue(body)
                     self.assert_uncached(headers)
+
+    def test_release_version_is_not_frozen_when_server_starts(self):
+        latest = preview.current_version()
+        with mock.patch.object(preview, 'VERSION', 'old-build'):
+            status, headers, body = self.request('/')
+            self.assertEqual(status, 302)
+            self.assertEqual(headers['Location'], '/demo/?v=' + latest)
+
+    def test_demo_and_popup_visibly_identify_the_current_build(self):
+        for path in ('/demo/?v=old-build', '/popup/popup.html?demo=1&v=old-build'):
+            with self.subTest(path=path):
+                status, headers, body = self.request(path)
+                self.assertEqual(status, 200)
+                self.assertIn(('v' + preview.VERSION).encode(), body)
+                self.assertIn(('?v=' + preview.VERSION).encode(), body)
+                self.assert_uncached(headers)
 
     def test_head_uses_same_redirect_and_cache_policy(self):
         status, headers, body = self.request('/', method='HEAD')

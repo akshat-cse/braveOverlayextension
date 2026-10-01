@@ -14,8 +14,15 @@ import sys
 from urllib.parse import urlsplit
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-with open(os.path.join(ROOT, 'manifest.json'), encoding='utf-8') as manifest:
-    VERSION = json.load(manifest)['version']
+
+
+def current_version():
+    # Release bumps should reach an already-running preview too.
+    with open(os.path.join(ROOT, 'manifest.json'), encoding='utf-8') as manifest:
+        return json.load(manifest)['version']
+
+
+VERSION = current_version()
 
 
 class Handler(http.server.SimpleHTTPRequestHandler):
@@ -33,7 +40,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         # send_head serves both GET and HEAD, including versioned root URLs.
         if urlsplit(self.path).path in ('/', '/index.html'):
             self.send_response(302)
-            self.send_header('Location', '/demo/?v=' + VERSION)
+            self.send_header('Location', '/demo/?v=' + current_version())
             self.send_header('Content-Length', '0')
             self.end_headers()
             return None

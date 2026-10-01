@@ -2,7 +2,7 @@
  * Overlay Ink — the overlay itself (content script).
  *
  * Injected into every http(s) page by the manifest, and re-injected on demand
- * by the background worker when the page predates the install. The file is
+ * by the popup when the page predates the install. The file is
  * written so that running it twice is always safe:
  *
  *   • first run  → installs the API on the page, creates no DOM
@@ -12,11 +12,12 @@
  * writing is placed where you put it instead of flowing from the top of the
  * page. Every piece of writing is a "block" — its own little text box with its
  * own colour, size and font, movable by dragging its grip. Nothing is drawn
- * except the glyphs (and the small toolbar), so the page stays fully visible.
+ * except the glyphs and per-note handles. All controls live in the action popup,
+ * leaving the whole page available for writing.
  *
- * Public API on the page (used by the background worker):
+ * Public API on the page (used by the demo and tests):
  *   window.__overlayInkToggle()   → toggle, returns the new state
- *   window.__overlayInkState()    → { visible, mode, blocks }
+ *   window.__overlayInkState()    → { visible, mode, blocks, settings, selected }
  * The popup talks to it with chrome.tabs.sendMessage instead (see below).
  */
 (function () {
@@ -34,17 +35,16 @@
     return { ok: false, reason: 'shared-module-missing' };
   }
 
-  const { STORAGE, DEFAULT_SETTINGS, PRESET_COLORS, MIN_FONT_SIZE, MAX_FONT_SIZE } = C;
+  const { STORAGE, DEFAULT_SETTINGS } = C;
   const LOG = '[Overlay Ink]';
-  const EDGE_MARGIN = 24;  // keep blocks this far from the right/bottom edge
-  const TOP_MARGIN = 66;   // and below the toolbar when placed programmatically
+  const EDGE_MARGIN = 12;  // keep a caret reachable at the viewport edges
 
   /* --------------------------------------------------------------- state -- */
 
   // Defaults for new writing. Global: shared by every tab through storage.
   let settings = Object.assign({}, DEFAULT_SETTINGS);
   let blocks = [];          // { id, x, y, text, color, fontSize, font, el?, ink? }
-  let selectedId = null;    // the block the toolbar acts on
+  let selectedId = null;    // kept when focus moves into the extension popup
   let instance = null;
   let lastNotified = null;
 
@@ -111,16 +111,22 @@
 
   function notifyState() {
     const state = currentState();
-    if (lastNotified && lastNotified.visible === state.visible && lastNotified.mode === state.mode) return;
-    lastNotified = state;
-    sendMessage({ type: 'oi:state', visible: state.visible, mode: state.mode });
+    const signature = JSON.stringify(state);
+    if (lastNotified === signature) return;
+    lastNotified = signature;
+    sendMessage(Object.assign({ type: 'oi:state' }, state));
   }
 
   function currentState() {
+    const visible = Boolean(instance && instance.isVisible());
+    const block = visible && settings.mode === 'edit' ? findBlock(selectedId) : null;
     return {
-      visible: Boolean(instance && instance.isVisible()),
+      visible: visible,
       mode: settings.mode,
-      blocks: blocks.length
+      blocks: blocks.length,
+      settings: Object.assign({}, settings),
+      selected: block ? { id: block.id, color: block.color, fontSize: block.fontSize, font: block.font } : null,
+      controlsVersion: 3
     };
   }
 
@@ -156,6 +162,27 @@
     if (instance) instance.applySettings();
     if (immediate) writeSettings();
     else persistSettings();
+    notifyState();
+  }
+
+  /** Style the selected note, or the defaults when the popup chooses new notes. */
+  function setInk(patch, targetId) {
+    const id = targetId === undefined ? selectedId : targetId;
+    const block = id ? findBlock(id) : null;
+    // A stale popup must never turn a deleted note's style change into defaults.
+    if (id && !block) return;
+    if (!block) {
+      const next = C.normaliseSettings(Object.assign({}, settings, patch));
+      updateSettings({ color: next.color, fontSize: next.fontSize, font: next.font }, { immediate: true });
+      return;
+    }
+    const next = C.normaliseBlock(Object.assign({}, block, patch), settings);
+    block.color = next.color;
+    block.fontSize = next.fontSize;
+    block.font = next.font;
+    if (instance) instance.applySettings();
+    persistBlocks({ immediate: true });
+    notifyState();
   }
 
   function setMode(mode) {
@@ -190,6 +217,7 @@
       if (revision !== settingsRevision) return; // something newer already landed
       settings = C.normaliseSettings(raw);
       if (instance) instance.applySettings();
+      notifyState();
     });
   }
 
@@ -207,6 +235,7 @@
       if (stored.length) {
         blocks = stored;
         if (instance) instance.renderBlocks();
+        notifyState();
         return;
       }
       readStorage('local', STORAGE.legacyText).then(function (legacy) {
@@ -216,6 +245,7 @@
         if (instance) instance.renderBlocks();
         persistBlocks({ immediate: true });
         writeStorage('local', { [STORAGE.legacyText]: '' });
+        notifyState();
       });
     });
   }
@@ -225,22 +255,16 @@
     blocksRevision += 1;
     blocks = [];
     selectedId = null;
-    if (instance) {
-      instance.renderBlocks();
-      instance.syncToolbar();
-    }
+    if (instance) instance.renderBlocks();
     persistBlocks({ immediate: true });
     writeStorage('local', { [STORAGE.legacyText]: '' });
+    notifyState();
   }
 
   /* ------------------------------------------------------------- picture -- */
 
   const ICONS = {
-    pencil: '<path d="M11.4 2.6l2 2-8 8-2.7.7.7-2.7 8-8z"/><path d="M9.9 4.1l2 2"/>',
-    eye: '<path d="M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8z"/><circle cx="8" cy="8" r="1.9"/>',
-    trash: '<path d="M3 4.6h10M6.3 4.6V3.1h3.4v1.5M4.7 4.6l.6 8.3h5.4l.6-8.3"/>',
     close: '<path d="M4.2 4.2l7.6 7.6M11.8 4.2l-7.6 7.6"/>',
-    outline: '<path d="M2.6 13.3L8 3l5.4 10.3M4.7 10h6.6"/>',
     grip: '<circle cx="5.5" cy="5" r="1.15"/><circle cx="10.5" cy="5" r="1.15"/><circle cx="5.5" cy="8" r="1.15"/><circle cx="10.5" cy="8" r="1.15"/><circle cx="5.5" cy="11" r="1.15"/><circle cx="10.5" cy="11" r="1.15"/>'
   };
 
@@ -251,45 +275,8 @@
       'aria-hidden="true">' + ICONS[name] + '</svg>';
   }
 
-  const BAR_HTML =
-    '<div class="topwrap">' +
-      '<div class="bar" role="toolbar" aria-label="Overlay Ink">' +
-        '<div class="seg" role="group" aria-label="Mode">' +
-          '<button type="button" class="segbtn" data-mode="edit" title="Edit — the page pauses while you write">' +
-            icon('pencil') + '<span>Edit</span></button>' +
-          '<button type="button" class="segbtn" data-mode="view" title="View — the text stays, the page works normally">' +
-            icon('eye') + '<span>View</span></button>' +
-        '</div>' +
-        '<span class="sep"></span>' +
-        '<div class="swatches" role="group" aria-label="Ink colour"></div>' +
-        '<input class="hexInput" type="text" spellcheck="false" maxlength="7" aria-label="Ink colour hex code" title="Type a hex colour, e.g. #ff8800">' +
-        '<span class="sep"></span>' +
-        '<label class="field" title="Text size">' +
-          '<span class="lbl">Size</span>' +
-          '<input class="range sizeRange" type="range" min="' + MIN_FONT_SIZE + '" max="' + MAX_FONT_SIZE + '" step="1" aria-label="Text size">' +
-          '<b class="val sizeVal">44px</b>' +
-        '</label>' +
-        '<label class="field" title="Font">' +
-          '<select class="fonts" aria-label="Font"></select>' +
-        '</label>' +
-        '<label class="field" title="Panel behind the whole overlay — 0% keeps it fully transparent">' +
-          '<span class="lbl">BG</span>' +
-          '<input class="range bgRange" type="range" min="0" max="100" step="1" aria-label="Background opacity">' +
-          '<b class="val bgVal">0%</b>' +
-        '</label>' +
-        '<button type="button" class="iconbtn shadowBtn" data-act="shadow" title="Text outline — keeps the ink readable on busy pages">' +
-          icon('outline') + '</button>' +
-        '<span class="sep"></span>' +
-        '<button type="button" class="txtbtn clearBtn" data-act="clear" title="Erase everything on the canvas">' +
-          icon('trash') + '<span class="txt">Clear</span></button>' +
-        '<button type="button" class="iconbtn closeBtn" data-act="hide" title="Hide the overlay (Alt+Shift+H)">' +
-          icon('close') + '</button>' +
-      '</div>' +
-      '<div class="hint">Click anywhere and type &nbsp;·&nbsp; drag <b>⠿</b> to move a note &nbsp;·&nbsp; <b>Esc</b> switches to View</div>' +
-    '</div>';
-
   const CSS_TEXT = [
-    ':host { all: initial; }',
+    ':host { all: initial; position: fixed; inset: 0; z-index: 2147483646; pointer-events: none; }',
     '*, *::before, *::after { box-sizing: border-box; }',
 
     '.wrap {',
@@ -303,14 +290,14 @@
     '  -webkit-font-smoothing: antialiased;',
     '}',
 
-    /* layers: background panel → click surface → text blocks → toolbar */
+    /* layers: optional background → transparent click surface → text blocks */
     '.scrim { position: absolute; inset: 0; background: var(--oi-bg, transparent); pointer-events: none; z-index: 0; }',
     '.canvas { position: absolute; inset: 0; pointer-events: none; z-index: 1; }',
     '.wrap[data-mode="edit"] .canvas { pointer-events: auto; cursor: text; }',
     '.blocks { position: absolute; inset: 0; pointer-events: none; z-index: 2; }',
 
     /* one piece of writing */
-    '.blk { position: absolute; max-width: 96vw; pointer-events: auto; }',
+    '.blk { position: absolute; max-width: 100vw; pointer-events: auto; }',
     '.wrap[data-mode="view"] .blk { pointer-events: none; }',
     '.blk .ink {',
     '  display: block; min-width: 16px; min-height: 1.34em; outline: 0;',
@@ -330,6 +317,7 @@
     '}',
     '.blk:hover .tools, .blk[data-selected="true"] .tools, .blk:focus-within .tools { opacity: 1; pointer-events: auto; }',
     '.wrap[data-mode="view"] .tools { display: none; }',
+    '.blk[data-at-top="true"] .tools { top: 100%; margin-top: 4px; }',
     '.tools button {',
     '  width: 19px; height: 19px; padding: 0; display: grid; place-items: center;',
     '  border: 0; border-radius: 5px; cursor: pointer; color: #d4d4d8;',
@@ -342,95 +330,6 @@
     '.tools svg { width: 11px; height: 11px; display: block; }',
     '.blk.dragging { opacity: .85; }',
 
-    /* toolbar */
-    '.topwrap {',
-    '  position: absolute; top: 14px; left: 50%; transform: translateX(-50%);',
-    '  display: flex; flex-direction: column; align-items: center; gap: 8px;',
-    '  width: max-content; max-width: min(96vw, 1180px); pointer-events: none; z-index: 4;',
-    '}',
-    '.bar {',
-    '  pointer-events: auto;',
-    '  display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 7px;',
-    '  padding: 7px 9px; border-radius: 14px;',
-    '  background: rgba(17, 19, 26, .87);',
-    '  border: 1px solid rgba(255, 255, 255, .13);',
-    '  box-shadow: 0 14px 38px rgba(0, 0, 0, .45), inset 0 1px 0 rgba(255, 255, 255, .07);',
-    '  -webkit-backdrop-filter: blur(14px) saturate(160%); backdrop-filter: blur(14px) saturate(160%);',
-    '  animation: oi-in .18s ease-out; transition: opacity .18s ease;',
-    '}',
-    '.wrap[data-mode="view"] .bar { opacity: .6; }',
-    '.wrap[data-mode="view"] .bar:hover, .wrap[data-mode="view"] .bar:focus-within { opacity: 1; }',
-    '@keyframes oi-in { from { opacity: 0; transform: translateY(-6px) scale(.985); } to { opacity: 1; transform: none; } }',
-    '@media (prefers-reduced-motion: reduce) { .bar { animation: none; } }',
-
-    '.seg { display: flex; gap: 3px; padding: 3px; border-radius: 10px; background: rgba(255, 255, 255, .07); }',
-    '.segbtn {',
-    '  display: inline-flex; align-items: center; gap: 5px;',
-    '  padding: 6px 11px; border: 0; border-radius: 8px; cursor: pointer;',
-    '  background: transparent; color: #d4d4d8; font: inherit; font-weight: 600;',
-    '  transition: background .14s ease, color .14s ease;',
-    '}',
-    '.segbtn:hover { background: rgba(255, 255, 255, .1); color: #fff; }',
-    '.segbtn[aria-pressed="true"] { background: #7c3aed; color: #fff; box-shadow: 0 2px 10px rgba(124, 58, 237, .45); }',
-    '.segbtn svg { width: 14px; height: 14px; display: block; }',
-
-    '.sep { width: 1px; align-self: stretch; min-height: 20px; background: rgba(255, 255, 255, .14); }',
-
-    '.swatches { display: flex; align-items: center; gap: 5px; }',
-    '.swatch {',
-    '  width: 18px; height: 18px; padding: 0; border-radius: 50%; cursor: pointer;',
-    '  border: 1px solid rgba(255, 255, 255, .38); background: var(--c, #fff);',
-    '  transition: transform .12s ease, box-shadow .12s ease;',
-    '}',
-    '.swatch:hover { transform: scale(1.16); }',
-    '.swatch[aria-pressed="true"] { box-shadow: 0 0 0 2px rgba(17, 19, 26, .95), 0 0 0 3.5px var(--c, #fff); }',
-    '.custom {',
-    '  position: relative; overflow: hidden; border-style: dashed; border-color: rgba(255, 255, 255, .5);',
-    '  background: conic-gradient(from 0deg, #ff2d55, #ff9500, #ffd60a, #34c759, #00c7b7, #0a84ff, #a855f7, #ff2d55);',
-    '}',
-    '.custom[data-active="true"] { border-style: solid; box-shadow: 0 0 0 2px rgba(17, 19, 26, .95), 0 0 0 3.5px #a1a1aa; }',
-    '.custom input { position: absolute; inset: -8px; width: 220%; height: 220%; opacity: 0; border: 0; padding: 0; cursor: pointer; }',
-    '.hexInput {',
-    '  width: 76px; padding: 5px 7px; border-radius: 8px; text-align: center;',
-    '  border: 1px solid rgba(255, 255, 255, .14); background: rgba(255, 255, 255, .06);',
-    '  color: #e4e4e7; font: 600 11px/1.3 ui-monospace, Menlo, Consolas, monospace;',
-    '  text-transform: lowercase;',
-    '}',
-    '.hexInput:focus { outline: 1px solid #a78bfa; }',
-
-    '.field { display: inline-flex; align-items: center; gap: 6px; color: #d4d4d8; font-weight: 600; }',
-    '.field .lbl { opacity: .7; }',
-    '.field .val { min-width: 34px; text-align: right; color: #a1a1aa; font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; }',
-    'input[type="range"] { width: 96px; height: 18px; accent-color: #a78bfa; cursor: pointer; background: transparent; }',
-    'select.fonts {',
-    '  appearance: none; padding: 5px 8px; border-radius: 8px; cursor: pointer;',
-    '  border: 1px solid rgba(255, 255, 255, .14); background: rgba(255, 255, 255, .06);',
-    '  color: #e4e4e7; font: inherit; font-weight: 600;',
-    '}',
-    'select.fonts option { background: #171923; color: #e4e4e7; }',
-
-    '.iconbtn, .txtbtn {',
-    '  display: inline-flex; align-items: center; gap: 6px;',
-    '  padding: 6px 9px; border-radius: 9px; cursor: pointer; font: inherit; font-weight: 600;',
-    '  border: 1px solid rgba(255, 255, 255, .13); background: rgba(255, 255, 255, .05); color: #d4d4d8;',
-    '  transition: background .14s ease, color .14s ease, border-color .14s ease;',
-    '}',
-    '.iconbtn:hover, .txtbtn:hover { background: rgba(255, 255, 255, .13); color: #fff; }',
-    '.iconbtn svg, .txtbtn svg { width: 14px; height: 14px; display: block; }',
-    '.iconbtn[aria-pressed="false"] { opacity: .5; }',
-    '.closeBtn:hover { background: rgba(239, 68, 68, .9); border-color: rgba(239, 68, 68, .9); color: #fff; }',
-    '.clearBtn.armed { background: rgba(239, 68, 68, .92); border-color: rgba(239, 68, 68, .92); color: #fff; }',
-
-    '.hint {',
-    '  padding: 5px 12px; border-radius: 999px; font-weight: 600; color: #e4e4e7;',
-    '  background: rgba(17, 19, 26, .78); border: 1px solid rgba(255, 255, 255, .1);',
-    '  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);',
-    '  max-width: 92vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;',
-    '  opacity: 1; transition: opacity .45s ease;',
-    '}',
-    '.hint[data-faded="true"] { opacity: 0; }',
-    '.hint b { color: #c4b5fd; font-weight: 700; }',
-    '.wrap[data-mode="view"] .hint { display: none; }'
   ].join('\n');
 
   /* -------------------------------------------------------------- overlay -- */
@@ -446,7 +345,6 @@
     const wrap = document.createElement('div');
     wrap.className = 'wrap';
     wrap.dataset.mode = settings.mode;
-    wrap.innerHTML = BAR_HTML;
 
     const scrim = document.createElement('div');
     scrim.className = 'scrim';
@@ -454,70 +352,25 @@
     canvas.className = 'canvas';
     const blockLayer = document.createElement('div');
     blockLayer.className = 'blocks';
-    wrap.insertBefore(canvas, wrap.firstChild);
-    wrap.insertBefore(scrim, canvas);
-    wrap.insertBefore(blockLayer, wrap.querySelector('.topwrap'));
+    wrap.appendChild(scrim);
+    wrap.appendChild(canvas);
+    wrap.appendChild(blockLayer);
     shadow.appendChild(wrap);
-
-    /* element handles */
-    const bar = wrap.querySelector('.bar');
-    const segButtons = wrap.querySelectorAll('.segbtn');
-    const swatchWrap = wrap.querySelector('.swatches');
-    const hexInput = wrap.querySelector('.hexInput');
-    const sizeRange = wrap.querySelector('.sizeRange');
-    const sizeVal = wrap.querySelector('.sizeVal');
-    const bgRange = wrap.querySelector('.bgRange');
-    const bgVal = wrap.querySelector('.bgVal');
-    const fontSelect = wrap.querySelector('.fonts');
-    const shadowBtn = wrap.querySelector('.shadowBtn');
-    const clearBtn = wrap.querySelector('.clearBtn');
-    const hint = wrap.querySelector('.hint');
-
-    /* colour swatches */
-    const customSwatch = document.createElement('label');
-    customSwatch.className = 'swatch custom';
-    customSwatch.title = 'Custom colour';
-    const colorInput = document.createElement('input');
-    colorInput.type = 'color';
-    colorInput.setAttribute('aria-label', 'Custom ink colour');
-    customSwatch.appendChild(colorInput);
-
-    PRESET_COLORS.forEach(function (color) {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'swatch';
-      btn.dataset.color = color;
-      btn.style.setProperty('--c', color);
-      btn.title = color;
-      btn.setAttribute('aria-pressed', 'false');
-      swatchWrap.appendChild(btn);
-    });
-    swatchWrap.appendChild(customSwatch);
-
-    /* font options */
-    C.FONTS.forEach(function (font) {
-      const opt = document.createElement('option');
-      opt.value = font.id;
-      opt.textContent = font.label;
-      fontSelect.appendChild(opt);
-    });
 
     let visible = false;
     let lastAppliedMode = null;
-    let clearArmed = false;
-    let clearTimer = null;
-    let hintTimer = null;
-    let hintShownOnce = false;
 
     /* --------------------------------------------------------- geometry -- */
 
     function placeElement(block) {
       if (!block.el) return;
       const { w, h } = viewport();
-      const maxLeft = Math.max(0, w - EDGE_MARGIN * 2);
-      const maxTop = Math.max(0, h - EDGE_MARGIN * 3);
-      block.el.style.left = Math.round(C.clamp(block.x * w, 0, maxLeft)) + 'px';
-      block.el.style.top = Math.round(C.clamp(block.y * h, 0, maxTop)) + 'px';
+      const left = Math.round(C.clamp(block.x * w, 0, Math.max(0, w - EDGE_MARGIN)));
+      const top = Math.round(C.clamp(block.y * h, 0, Math.max(0, h - EDGE_MARGIN)));
+      block.el.style.left = left + 'px';
+      block.el.style.top = top + 'px';
+      block.el.style.maxWidth = Math.max(16, w - left - 4) + 'px';
+      block.el.dataset.atTop = String(top < 24);
     }
 
     function layoutBlocks() {
@@ -593,7 +446,7 @@
 
       const ink = document.createElement('div');
       ink.className = 'ink';
-      ink.setAttribute('contenteditable', 'true');
+      ink.setAttribute('contenteditable', settings.mode === 'edit' ? 'true' : 'false');
       ink.setAttribute('spellcheck', 'false');
       ink.setAttribute('autocapitalize', 'off');
       ink.setAttribute('autocorrect', 'off');
@@ -628,7 +481,6 @@
       /* --- typing --- */
       ink.addEventListener('focus', function () {
         selectBlock(block.id);
-        dismissHint();
       });
 
       ink.addEventListener('pointerdown', function () {
@@ -638,7 +490,6 @@
       ink.addEventListener('input', function () {
         block.text = blockText(ink);
         persistBlocks();
-        dismissHint();
       });
 
       ink.addEventListener('keydown', function (event) {
@@ -677,12 +528,9 @@
         insertTextAtCaret(ink, text);
       });
 
-      // Focus moved away: tidy the markup, drop the block if it was left empty
-      // and stop the toolbar from pointing at it — unless focus only went to
-      // our own toolbar, where keeping the selection is the whole point.
-      ink.addEventListener('focusout', function (event) {
-        const related = event.relatedTarget;
-        if (related && related instanceof Element && bar.contains(related)) return;
+      // Keep a nonempty note selected when focus moves to Brave's popup.
+      // Selecting another note, New notes, Esc, View or Off deselects it.
+      ink.addEventListener('focusout', function () {
         timeout(function () { finishBlock(block.id); }, 0);
       });
 
@@ -716,15 +564,18 @@
     }
 
     function paintBlocks() {
+      if (!findBlock(selectedId)) selectedId = null;
       blockLayer.textContent = '';
       blocks.forEach(function (block) {
         const el = buildBlockElement(block);
         placeElement(block);
         blockLayer.appendChild(el);
       });
+      notifyState();
     }
 
     function startDrag(block, event) {
+      if (settings.mode !== 'edit' || event.button !== 0) return;
       const el = block.el;
       const rect = el.getBoundingClientRect();
       const { w, h } = viewport();
@@ -747,7 +598,7 @@
         window.removeEventListener('pointermove', move);
         window.removeEventListener('pointerup', finish);
         window.removeEventListener('pointercancel', finish);
-        persistBlocks();
+        persistBlocks({ immediate: true });
         try { if (target && target.releasePointerCapture && event.pointerId != null) target.releasePointerCapture(event.pointerId); } catch (err) { /* ignore */ }
         refocusBlock();
       };
@@ -797,6 +648,7 @@
         try { block.ink.blur(); } catch (err) { /* ignore */ }
       }
       finishBlock(id);
+      if (selectedId === id) deselect();
     }
 
     function activeInk() {
@@ -807,7 +659,7 @@
       }
     }
 
-    /** Called when a block loses focus: tidy it, drop it if empty, deselect. */
+    /** Tidy a blurred note; keep it selected for the popup unless it is empty. */
     function finishBlock(id) {
       const block = findBlock(id);
       if (!block || !block.ink) return;
@@ -822,11 +674,6 @@
         return;
       }
       persistBlocks();
-      if (selectedId === id) {
-        selectedId = null;
-        block.el.dataset.selected = 'false';
-        syncToolbar();
-      }
     }
 
     function removeBlock(id, options) {
@@ -838,28 +685,30 @@
       if (selectedId === id) selectedId = null;
       if (!(options && options.silent)) persistBlocks({ immediate: true });
       else persistBlocks();
-      syncToolbar();
+      notifyState();
     }
 
     function selectBlock(id) {
       if (selectedId === id) {
-        syncToolbar();
+        notifyState();
         return;
       }
       blocks.forEach(function (block) {
         if (block.el) block.el.dataset.selected = String(block.id === id);
       });
       selectedId = id;
-      syncToolbar();
       notifyState();
     }
 
     function deselect() {
+      const id = selectedId;
+      try { if (activeInk()) activeInk().blur(); } catch (err) { /* ignore */ }
+      if (id) finishBlock(id);
       selectedId = null;
       blocks.forEach(function (block) {
         if (block.el) block.el.dataset.selected = 'false';
       });
-      syncToolbar();
+      notifyState();
     }
 
     function refocusBlock() {
@@ -868,55 +717,23 @@
       focusBlock(selectedId, true);
     }
 
-    function selectedBlock() {
-      return selectedId ? findBlock(selectedId) : null;
+    /** Return from the popup without forcing the caret to the end of the note. */
+    function resumeEditing() {
+      if (settings.mode !== 'edit' || !visible || !selectedId) return;
+      focusBlock(selectedId, false);
     }
 
     /* ------------------------------------------------------- style sync -- */
 
-    function currentInk() {
-      const block = selectedBlock();
-      if (block) return { color: block.color, fontSize: block.fontSize, font: block.font };
-      return { color: settings.color, fontSize: settings.fontSize, font: settings.font };
-    }
-
     function applyStyle() {
       wrap.style.setProperty('--oi-bg', 'rgba(16, 18, 27, ' + (settings.bgOpacity / 100).toFixed(2) + ')');
-      bgRange.value = String(settings.bgOpacity);
-      bgVal.textContent = settings.bgOpacity + '%';
-      shadowBtn.setAttribute('aria-pressed', String(settings.textShadow));
       blocks.forEach(applyBlockStyle);
-      syncToolbar();
-    }
-
-    /** The toolbar always shows what the next keystroke (or the selected
-        block) will look like. */
-    function syncToolbar() {
-      const ink = currentInk();
-      const focused = activeInk();
-
-      if (focused !== hexInput && document.activeElement !== hexInput) hexInput.value = ink.color;
-      hexInput.dataset.valid = 'true';
-      if (focused !== sizeRange && document.activeElement !== sizeRange) sizeRange.value = String(ink.fontSize);
-      sizeVal.textContent = ink.fontSize + 'px';
-      if (focused !== fontSelect && document.activeElement !== fontSelect) fontSelect.value = ink.font;
-      if (focused !== bgRange && document.activeElement !== bgRange) bgRange.value = String(settings.bgOpacity);
-      bgVal.textContent = settings.bgOpacity + '%';
-
-      shadowBtn.setAttribute('aria-pressed', String(settings.textShadow));
-      colorInput.value = ink.color;
-      const isCustom = PRESET_COLORS.indexOf(ink.color) === -1;
-      customSwatch.dataset.active = String(isCustom);
-      customSwatch.style.setProperty('--c', ink.color);
-      swatchWrap.querySelectorAll('.swatch[data-color]').forEach(function (btn) {
-        btn.setAttribute('aria-pressed', String(btn.dataset.color === ink.color));
-      });
     }
 
     function syncMode() {
       wrap.dataset.mode = settings.mode;
-      segButtons.forEach(function (btn) {
-        btn.setAttribute('aria-pressed', String(btn.dataset.mode === settings.mode));
+      blocks.forEach(function (block) {
+        if (block.ink) block.ink.setAttribute('contenteditable', settings.mode === 'edit' ? 'true' : 'false');
       });
     }
 
@@ -934,10 +751,7 @@
     function refreshMode() {
       syncMode();
       if (settings.mode === 'view') {
-        blocks.forEach(function (block) {
-          if (block.el) block.el.dataset.selected = 'false';
-        });
-        try { if (activeInk()) activeInk().blur(); } catch (err) { /* ignore */ }
+        deselect();
       } else if (visible) {
         refocusBlock();
       }
@@ -945,20 +759,8 @@
 
     /* -------------------------------------------------------- visibility -- */
 
-    function showHint() {
-      if (hintShownOnce) return;
-      hintShownOnce = true;
-      hint.dataset.faded = 'false';
-      clearTimeout(hintTimer);
-      hintTimer = setTimeout(dismissHint, 9000);
-    }
-
-    function dismissHint() {
-      clearTimeout(hintTimer);
-      hint.dataset.faded = 'true';
-    }
-
     function attach() {
+      if (!visible) return;
       const parent = document.fullscreenElement && !isReplacedElement(document.fullscreenElement)
         ? document.fullscreenElement
         : (document.documentElement || document.body);
@@ -983,10 +785,9 @@
       lastAppliedMode = settings.mode;
       applyStyle();
       syncMode();
-      showHint();
       if (settings.mode === 'edit') {
         const active = document.activeElement;
-        if (active && active !== host && typeof active.blur === 'function' && !isEditableElement(active)) {
+        if (active && active !== host && typeof active.blur === 'function') {
           try { active.blur(); } catch (err) { /* ignore */ }
         }
         refocusBlock();
@@ -1006,7 +807,6 @@
       blocks = blocks.filter(function (block) { return block.text.trim() !== ''; });
       if (blocksDirty || lastWrittenBlocks) persistBlocks({ immediate: true });
       selectedId = null;
-      dismissHint();
       try { if (activeInk()) activeInk().blur(); } catch (err) { /* ignore */ }
       if (host.parentNode) host.parentNode.removeChild(host);
       notifyState();
@@ -1022,49 +822,6 @@
       return visible;
     }
 
-    /* ----------------------------------------------------------- actions -- */
-
-    function disarmClear() {
-      clearTimeout(clearTimer);
-      clearArmed = false;
-      clearBtn.classList.remove('armed');
-      clearBtn.querySelector('.txt').textContent = 'Clear';
-    }
-
-    function handleClear() {
-      if (!clearArmed) {
-        clearArmed = true;
-        clearBtn.classList.add('armed');
-        clearBtn.querySelector('.txt').textContent = 'Sure?';
-        clearTimeout(clearTimer);
-        clearTimer = setTimeout(disarmClear, 3000);
-        return;
-      }
-      disarmClear();
-      clearEverything();
-    }
-
-    /**
-     * Colour / size / font changes land on the block being edited; with nothing
-     * selected they become the defaults for the next thing you write.
-     */
-    function setInk(patch, options) {
-      const immediate = options && options.immediate;
-      const block = selectedBlock();
-      if (block) {
-        const next = C.normaliseBlock(Object.assign({}, block, patch), settings);
-        block.color = next.color;
-        block.fontSize = next.fontSize;
-        block.font = next.font;
-        applyBlockStyle(block);
-        persistBlocks(immediate ? { immediate: true } : undefined);
-        syncToolbar();
-        notifyState();
-        return;
-      }
-      updateSettings(patch, options);
-    }
-
     /* ------------------------------------------------------------ events -- */
 
     // Click anywhere on the empty canvas → a caret appears right there.
@@ -1075,85 +832,6 @@
       focusBlock(block.id);
     });
 
-    // Keep focus where it is for buttons and swatches; sliders, the select and
-    // the hex field need their default behaviour.
-    bar.addEventListener('pointerdown', function (event) {
-      const target = event.target;
-      if (target instanceof Element && target.closest('input, select')) return;
-      event.preventDefault();
-    });
-
-    bar.addEventListener('click', function (event) {
-      const target = event.target;
-      if (!(target instanceof Element)) return;
-
-      const seg = target.closest('.segbtn');
-      if (seg) {
-        setMode(seg.dataset.mode);
-        dismissHint();
-        refocusBlock();
-        return;
-      }
-
-      const swatch = target.closest('.swatch[data-color]');
-      if (swatch) {
-        setInk({ color: swatch.dataset.color }, { immediate: true });
-        return;
-      }
-
-      const action = target.closest('[data-act]');
-      if (!action) return;
-      const act = action.dataset.act;
-      if (act === 'hide') {
-        hide();
-      } else if (act === 'shadow') {
-        updateSettings({ textShadow: !settings.textShadow }, { immediate: true });
-      } else if (act === 'clear') {
-        handleClear();
-      }
-    });
-
-    bar.addEventListener('change', function (event) {
-      const target = event.target;
-      if (!(target instanceof Element)) return;
-      if (target === fontSelect) setInk({ font: fontSelect.value }, { immediate: true });
-      if (target === sizeRange) setInk({ fontSize: Number(sizeRange.value) }, { immediate: true });
-      if (target === bgRange) updateSettings({ bgOpacity: Number(bgRange.value) }, { immediate: true });
-      if (target === colorInput) setInk({ color: colorInput.value }, { immediate: true });
-      refocusBlock();
-    });
-
-    sizeRange.addEventListener('input', function () {
-      sizeVal.textContent = sizeRange.value + 'px';
-      setInk({ fontSize: Number(sizeRange.value) });
-    });
-    bgRange.addEventListener('input', function () {
-      bgVal.textContent = bgRange.value + '%';
-      updateSettings({ bgOpacity: Number(bgRange.value) });
-    });
-    colorInput.addEventListener('input', function () {
-      setInk({ color: colorInput.value });
-    });
-
-    hexInput.addEventListener('input', function () {
-      const value = hexInput.value.trim();
-      hexInput.dataset.valid = String(C.isHexColor(value));
-      if (C.isHexColor(value)) setInk({ color: C.expandHex(value) });
-    });
-    hexInput.addEventListener('change', function () {
-      const value = hexInput.value.trim();
-      const colour = C.isHexColor(value) ? C.expandHex(value) : (value ? '#' + value.replace(/^#/, '') : '');
-      if (C.isHexColor(colour)) setInk({ color: C.expandHex(colour) }, { immediate: true });
-      syncToolbar();
-      refocusBlock();
-    });
-    hexInput.addEventListener('keydown', function (event) {
-      if (event.key === 'Enter') {
-        event.preventDefault();
-        hexInput.blur();
-      }
-    });
-
     /* Typing with nothing selected starts a note where it is comfortable. */
     window.addEventListener('keydown', function (event) {
       if (!visible || settings.mode !== 'edit' || selectedId) return;
@@ -1161,11 +839,9 @@
       if (typeof event.key !== 'string' || event.key.length !== 1) return;
       if (isInsideOverlay(event)) return;
       event.preventDefault();
-      const { w, h } = viewport();
-      const block = addBlock(0.06, Math.min(0.6, (TOP_MARGIN + 40) / h));
+      const block = addBlock(0.06, 0.12);
       focusBlock(block.id);
       insertTextAtCaret(block.ink, event.key);
-      void w;
     }, true);
 
     /* Shortcuts that do not depend on where the focus is. */
@@ -1188,7 +864,8 @@
       applySettings: applySettings,
       refreshMode: refreshMode,
       renderBlocks: renderBlocks,
-      syncToolbar: syncToolbar,
+      deselect: deselect,
+      resumeEditing: resumeEditing,
       destroy: function () {
         window.removeEventListener('resize', layoutBlocks);
         document.removeEventListener('fullscreenchange', attach, true);
@@ -1200,10 +877,6 @@
 
   function isReplacedElement(el) {
     return el.matches && el.matches('video, img, canvas, iframe, embed, object, audio');
-  }
-
-  function isEditableElement(el) {
-    return Boolean(el && el.matches && el.matches('input, textarea, select, [contenteditable=""], [contenteditable="true"]'));
   }
 
   /** True when a DOM event happened inside our own overlay. */
@@ -1274,6 +947,18 @@
           clearEverything();
           sendResponse(currentState());
           break;
+        case 'oi:set-ink':
+          setInk(message.ink || {}, message.blockId);
+          sendResponse(currentState());
+          break;
+        case 'oi:resume-edit':
+          if (instance) instance.resumeEditing();
+          sendResponse(currentState());
+          break;
+        case 'oi:deselect':
+          if (instance) instance.deselect();
+          sendResponse(currentState());
+          break;
         case 'oi:set-settings':
           updateSettings(message.settings || {}, { immediate: true });
           sendResponse(currentState());
@@ -1288,6 +973,7 @@
 
   try {
     chrome.storage.onChanged.addListener(function (changes, area) {
+      if (area !== 'local') return;
       if (changes[STORAGE.settings] && !settingsPendingWrite) {
         settingsRevision += 1;
         settings = C.normaliseSettings(changes[STORAGE.settings].newValue);
@@ -1298,10 +984,17 @@
         blocks = C.normaliseBlocks(changes[STORAGE.blocks].newValue, null);
         if (instance) instance.renderBlocks();
       }
+      notifyState();
     });
   } catch (err) {
     /* ignore */
   }
+
+  // Native popup dismissal or returning to this tab restores the selected
+  // note's caret. Nothing is focused or created in View mode or while Off.
+  window.addEventListener('focus', function () {
+    if (instance) instance.resumeEditing();
+  });
 
   /* Alt+Shift+H hides the overlay from anywhere on the page. */
   window.addEventListener('keydown', function (event) {

@@ -18,18 +18,18 @@
     <section class="panel">
       <h2>How it works</h2>
       <ol class="steps">
-        <li>Click the <strong>Overlay Ink icon</strong> in the toolbar (or press <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>O</kbd>) on any page.</li>
+        <li>Click the <strong>Overlay Ink icon</strong> in the toolbar (or press <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>O</kbd>) on any page to open the popup. Turn <strong>On</strong>, then close it.</li>
         <li><strong>Click anywhere on the page</strong> — the caret appears exactly where you clicked, and you type there. Every click starts a separate little text box, so your notes sit where you put them instead of running down the page in one column.</li>
-        <li>Pick a <strong>colour</strong>, size and font in the top toolbar. With a note selected they change that note; with nothing selected they set the style for the next one. Drag a note's <strong>&#10287;</strong> grip to move it, or its <strong>&#10005;</strong> to delete it.</li>
+        <li>Pick a <strong>colour</strong>, size and font in the extension popup. Select a note, then reopen the icon to change its style. Choose <strong>New notes instead</strong> in the popup to set defaults. Closing the popup never hides the canvas. Drag a note's <strong>&#10287;</strong> grip to move it, or its <strong>&#10005;</strong> to delete it.</li>
         <li>Switch to <strong>View</strong> mode to keep everything on screen while you use the page normally. <kbd>Esc</kbd> first deselects a note, then switches to View.</li>
-        <li>Click the toolbar icon again, or press <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>H</kbd>, to hide it all. Your notes are kept and come back next time.</li>
+        <li>Switch <strong>Off</strong> in the popup, or press <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>H</kbd>, to hide it all. Your notes are kept and come back next time.</li>
       </ol>
-      <p class="hint">In Edit mode the page underneath stops responding to clicks so nothing moves while you write — that is deliberate. In View mode every click goes to the page as usual, except on the small toolbar itself.</p>
+      <p class="hint">In Edit mode the page underneath stops responding to clicks so nothing moves while you write — that is deliberate. In View mode every click goes to the page as usual. There is no on-page control bar in either mode, so the whole screen is available for writing.</p>
     </section>
 
     <section class="panel">
       <h2>Defaults for new notes</h2>
-      <p class="sub">Colour, size and font for the next note you write. Existing notes keep their own style — select one on the page to change it.</p>
+      <p class="sub">Colour, size and font for the next note you write. Existing notes keep their own style — select one on the page and open the extension popup to change it.</p>
 
       <div class="row">
         <span class="label">Start in</span>
@@ -74,11 +74,11 @@
     <section class="panel">
       <h2>Keyboard shortcuts</h2>
       <ul class="keys">
-        <li><kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>O</kbd><span>Show or hide the overlay (same as clicking the icon)</span></li>
+        <li><kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>O</kbd><span>Open the extension popup (same as clicking the icon)</span></li>
         <li><kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>H</kbd><span>Hide the overlay while it is open</span></li>
-        <li><kbd>Esc</kbd><span>Deselect the note you are typing in, then switch to View</span></li>
+        <li><kbd>Esc</kbd><span>On the page: deselect a note, then switch to View. In the popup: close controls only</span></li>
       </ul>
-      <button type="button" class="btn" id="shortcuts">Change the toggle shortcut</button>
+      <button type="button" class="btn" id="shortcuts">Change the popup shortcut</button>
       <p class="hint" id="shortcutNote" hidden>Open <code>brave://extensions/shortcuts</code> and look for “Overlay Ink”.</p>
     </section>
 
@@ -92,7 +92,7 @@
     </section>
 
     <footer class="foot">
-      <p>Overlay Ink v0.2.0 · Works in Brave, Chrome, Edge and other Chromium browsers (Manifest V3).</p>
+      <p>Overlay Ink v0.3.0 · Works in Brave, Chrome, Edge and other Chromium browsers (Manifest V3).</p>
       <p>Handwriting font: <em>Patrick Hand</em> by Patrick Wagesreiter, licensed under the SIL Open Font License 1.1 (see <code>fonts/OFL.txt</code>).</p>
     </footer>
   </main>

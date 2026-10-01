@@ -1,176 +1,160 @@
 # Overlay Ink
 
-A transparent canvas you can write on, anywhere on top of any web page — a Brave /
-Chrome (Manifest V3) extension.
+A completely transparent, click-anywhere text canvas on top of a web page.
+Built for **Brave** and other Chromium browsers (Manifest V3).
 
-Click the toolbar icon, a see-through layer appears, and then **you click wherever you
-want to write and type there**. It behaves like a OneNote page over the site: each click
-starts its own little text box in the colour you picked, so notes sit in the margin,
-beside a paragraph, or in the corner — they never flow down the page in one column. The
-page underneath stays completely visible; only your writing is drawn.
-
-```
-┌──────────────────────────────────────────────────────────────────┐
-│  ⬤ ⬤ ⬤   example.com                                [ 🖊  EDIT ] │  ← toolbar icon shows the state
-├──────────────────────────────────────────────────────────────────┤
-│        ┌──────────────────────────────────────────────────┐      │
-│        │ Edit│View │ ●●●●●●●● ⬤ #ff8800 │ Size──72px │ ✕ │      │  ← overlay toolbar
-│        └──────────────────────────────────────────────────┘      │
-│                                                                  │
-│   Ask about the                          ⠿ ✕                    │
-│   second draft                        ┌───────────────────────┐  │
-│   before Friday                       │ and check page 14 too │  │  ← each note is placed where
-│                                       └───────────────────────┘  │    you clicked, in its own colour
-│                                                                  │
-│        The page itself is fully visible — only the writing is    │
-│        drawn on top of it.                                       │
-└──────────────────────────────────────────────────────────────────┘
-```
+**v0.3.0: controls live in the standard extension popup, not in a bar on the page.**
+Open the icon, switch On, choose your style, then close the popup and write anywhere.
+Closing the controls never turns the canvas off.
 
 ## Install in Brave
 
-1. Open `brave://extensions`.
-2. Turn on **Developer mode** (top-right switch).
-3. Click **Load unpacked** and choose this folder.
-4. The Overlay Ink icon appears in the toolbar — drag it next to the address bar if it is
-   hidden behind the puzzle-piece menu.
+1. Open `brave://extensions` and enable **Developer mode**.
+2. Choose **Load unpacked** and select this repository folder.
+3. Pin Overlay Ink from the extensions menu so its icon is next to the address bar.
+4. Click the icon to open its popup, then use the **On/Off** switch.
 
-Works the same in Chrome and Edge (`chrome://extensions`). PDF viewer pages are the one
-place it cannot run — that is a browser limitation for every extension.
+After updating the files, click **Reload** on the extension card and refresh any website
+that was already open. The popup asks for a page reload if it finds an older content script.
 
-## Using it
+The extension cannot run on browser-internal pages, extension stores or the built-in PDF
+viewer. Use an ordinary website. Chrome and Edge can load the same folder.
 
-**Toggle it on/off** — click the toolbar icon, or press <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>O</kbd>.
-The icon shows a small **EDIT** / **VIEW** badge whenever the overlay is up, so you can
-always tell at a glance.
+## Write with the whole page available
 
-**Write wherever you want** — with the overlay on, click any empty spot: the caret appears
-exactly there and you type in place. Click somewhere else and you get a second note.
-Nothing is tied to a fixed column, and text is plain, so it stays readable over whatever
-is behind it.
+1. **Open the popup:** click the extension icon, or press <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>O</kbd>.
+   Opening it does not toggle the overlay.
+2. **Turn On:** choose Edit mode and your ink colour, text size and font.
+3. **Close the popup:** click **Done · write on page**, its **✕**, press <kbd>Esc</kbd>
+   inside it, or click back onto the page. Your canvas stays on, with no floating bar or
+   persistent hint occupying the screen.
+4. **Click anywhere and type:** the caret lands there. Click a different spot for another
+   independent note; they are not one flowing text column.
+5. **Reopen the icon** whenever you need controls. Select **View** to use the site normally
+   while your notes stay visible, or switch **Off** to hide them. Your notes are kept.
 
-**Move or delete a note** — hover a note (or click into it) and its two little handles
-appear above it: <kbd>⠿</kbd> to drag it anywhere on the screen, <kbd>✕</kbd> to remove it.
-A note you click away from while it is still empty simply disappears.
+The icon displays an **EDIT** or **VIEW** badge while the overlay is on. The On/Off switch
+and all canvas controls are in the popup only; there is no separate floating control window.
 
-**Colour and style** — three ways to pick a colour, so there is no mistaking it:
+### Colours and styles
 
-| Control | What it does |
+All of these are in the popup:
+
+| Control | Behaviour |
 | --- | --- |
-| The eight colour dots | One click sets the ink colour. |
-| The dashed rainbow dot | Opens the full colour picker. |
-| The hex field (`#ff8800`) | Type any colour code you like. |
+| Eight preset colour dots | Pick an ink colour in one click. |
+| Rainbow colour well | Open the full native colour picker. |
+| Hex colour field | Type a 3- or 6-digit colour, with or without `#`. Invalid values are not applied. |
+| Text size | 12–240 px. |
+| Font | Bundled handwriting, sans serif, serif or monospace. |
+| Background | 0–100%; **0% is completely transparent** and is the default. |
+| Text outline | Improve contrast on a busy page. |
+| Clear all notes | Requires a second click to confirm. Deletion is currently final. |
+| Reset defaults | Reset settings without changing existing notes' own styles. |
 
-Plus **Size** (12–240 px), four **fonts** (bundled handwriting, sans, serif, mono), and an
-**outline** toggle so the writing stays readable on a busy page.
+Style follows the selection. **Select an existing note, then open the icon:** the popup
+says **Editing selected note**, and colour/size/font change that note only. The note stays
+selected when you move focus into the popup, and closing it restores the note’s caret.
+Choose **New notes instead** to deselect it
+and set defaults for the next note. Background and outline affect the whole canvas.
 
-Crucially, style follows your selection: **with a note selected** (caret in it) the
-controls restyle *that note* — so one canvas can hold a red reminder and a blue question.
-**With nothing selected** they set the style for the *next* note you place.
+Changes are sent immediately to the page, so closing the popup right after changing a
+control does not discard an unsaved popup timer.
 
-**Edit / View** — Edit pauses the page so clicks land in your notes instead of navigating
-away mid-sentence. View keeps everything on screen and hands every click back to the page,
-so you can keep reading and scrolling with your notes floating on top. The overlay toolbar
-stays usable in both modes and dims until you hover it. <kbd>Esc</kbd> deselects the note
-you are in, and pressing it again switches to View.
+### Move, delete and switch modes
 
-**BG** — a faint panel behind everything. At 0% — the default — the overlay is *completely*
-transparent, exactly as asked. (Individual notes never paint a background; only their
-glyphs are drawn.)
+- Hover or select a note in Edit mode for its **⠿** drag grip and **✕** delete handle.
+  These are the only small controls on the canvas; they are hidden in View mode.
+- A new note left empty disappears when you move away from it.
+- **Edit** gives clicks to the canvas so you can write without accidentally following a link.
+- **View** is read-only and fully click-through, including over your writing. The underlying
+  website can be clicked, scrolled and used normally; no toolbar needs to be avoided.
+- On the page, <kbd>Esc</kbd> first deselects a note, and another <kbd>Esc</kbd> switches to View.
+  Inside the popup, <kbd>Esc</kbd> just closes the popup.
+- <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>H</kbd> hides an open overlay from the page.
+- Reassign the popup shortcut at `brave://extensions/shortcuts` → Overlay Ink.
 
-**Alt**+<kbd>Shift</kbd>+<kbd>H</kbd> hides the overlay from anywhere on the page.
+**Options & shortcuts** in the popup opens the defaults/help page. It is also available
+by right-clicking the extension icon and choosing **Overlay Ink: options**.
 
-**The quick panel** — right-click the toolbar icon and choose *Overlay Ink: quick panel*.
-It is the same controls in a small floating window, with an on/off switch, and changes you
-make there appear live on the page. Its colour/size/font settings are the defaults for new
-notes.
+## Storage and privacy
 
-**Options** — right-click the toolbar icon → *Overlay Ink: options* (or *Extensions →
-Overlay Ink → Details → Extension options*). That page sets the defaults every new note
-starts with and explains the shortcuts. Reassign them here:
-`brave://extensions/shortcuts` → Overlay Ink.
+Notes and settings stay in `chrome.storage.local` in your browser profile. There is no
+server, upload, analytics or remote font dependency in the extension. The canvas is currently
+shared across tabs and websites, rather than saved separately for each site.
 
-Right-clicking the icon also gives you *Overlay Ink: write on this page*, and the same item
-appears in the right-click menu of any page.
+- `oiSettings`: mode, new-note colour/size/font, background opacity and outline.
+- `oiBlocks`: `{ version: 2, blocks: [{ id, x, y, text, color, fontSize, font }] }`.
+  Positions `x` and `y` are viewport fractions, so notes survive resizes sensibly.
+- Legacy `oiText` from 0.1 is migrated into a positioned note and then emptied.
+  Version 0.3 uses the same block format as 0.2, so existing canvas notes are preserved.
 
-## What it does not do (yet)
-
-Deliberately a starter: transparent canvas, text notes placed anywhere, colours/sizes/fonts,
-toggle from the toolbar, Edit/View, and the shortcuts. Natural next steps:
-
-- Freehand drawing / highlighting with a pointer, not just text
-- Arrows, boxes and underline shapes
-- **Undo/redo** for notes (delete is currently final)
-- Per-site notes instead of one shared canvas
-- `chrome.storage.sync` so notes travel between machines
-- Ruled lines or sticky-note backgrounds per note
-
-Say which one you want and it builds on top of what is here.
+Clearing notes clears the shared canvas everywhere. Resetting defaults does not delete notes.
 
 ## How it works
 
+```text
+manifest.json          MV3 action.default_popup, content scripts and popup shortcut
+common.js              settings, fonts, block normalisation and storage helpers
+background.js          EDIT/VIEW badge and Options context menu (no direct action toggle)
+content/overlay.js     transparent shadow-DOM canvas, placed notes and per-note handles
+popup/                 standard action popup: On/Off, mode and all writing controls
+options/               defaults, usage/shortcuts help, reset and clear
+fonts/                 bundled Patrick Hand (SIL OFL)
+icons/                 toolbar icons generated from tools/icon.svg
+demo/                  web preview of the real canvas and the real popup
+tools/                 headless tests, icon generator and uncached preview server
 ```
-manifest.json          MV3 manifest: toolbar action, content script, shortcut
-common.js              shared constants, settings + block model (content + pages)
-background.js          toolbar click → toggle, badge, context menu, quick panel
-content/overlay.js     the canvas: shadow DOM, placed text blocks, in-page toolbar
-popup/                 the quick panel (same controls, per-tab switch)
-options/               defaults, shortcuts help, reset/clear
-fonts/                 Patrick Hand (SIL OFL) for the handwriting option
-icons/                 toolbar icons, generated from tools/icon.svg
-demo/                  the live demo page (below)
-tools/                 smoke test, icon generator, demo server
-```
 
-A few decisions worth knowing about:
+- The canvas has no background at all unless you explicitly raise the Background slider.
+  Notes paint only their text, optional outline and editing handles.
+- A shadow DOM isolates the extension from the website's styles. A high stacking layer
+  keeps the canvas over ordinary site content without blocking anything in View mode.
+- The content script boots on HTTP(S) pages, but builds no overlay DOM until you turn it on.
+  The popup can also inject it into a page that was open before the extension was installed.
+- The popup communicates via `chrome.tabs.sendMessage`. State replies include settings and
+  the selected note's style; style changes explicitly target a note or new-note defaults.
+- Each note is a plain-text `contenteditable`. Clicking within a note places the caret
+  natively; paste strips formatting and bold/italic/underline shortcuts are suppressed.
+- Permissions are `activeTab`, `scripting`, `storage` and `contextMenus`, with no additional
+  `host_permissions` entry. The manifest's content-script matches cover HTTP(S) websites.
 
-- **It really is transparent.** The click surface and the note layer have no background at
-  all; a note is a bare text box whose only paint is the glyphs. The BG slider is the only
-  thing that can paint anything, and it starts at 0.
-- **A note is `contenteditable`, so clicking places the caret natively** — exactly where the
-  pointer went, including in the middle of a line. Text is kept plain: pastes are stripped
-  to text, and bold/italic shortcuts are ignored.
-- **Positions are stored as fractions of the viewport**, so a note made in a maximised
-  window still lands somewhere sensible in a small one, and survives a resize.
-- **Everything lives in a shadow DOM** attached to a custom `<overlay-ink>` element, so
-  neither your styles nor the page's can bleed into the overlay — and it cannot restyle
-  the page.
-- **Nothing is injected until you ask for it.** The content script boots on every page but
-  only builds the DOM the first time the overlay is shown.
-- **No host permissions.** The manifest asks for `activeTab`, `scripting`, `storage` and
-  `contextMenus` — no "read data on all websites" access. `activeTab` is granted the moment
-  you click the toolbar icon, which is exactly when the overlay needs it.
-- **Edit mode pauses the page on purpose.** While placing and typing notes, clicks belong to
-  the overlay, otherwise a stray click would navigate away mid-sentence.
-- **Notes are local.** They live in `chrome.storage.local` in your own browser profile, and
-  are shared across tabs. Nothing is sent anywhere; there is no network code in the
-  extension at all.
-
-## Development
+## Development and the live demo
 
 ```bash
-npm install        # jsdom + resvg, dev only — the extension itself has no dependencies
-npm test           # headless checks: the canvas model, styles, moving, deleting, sync
-npm run test:preview  # check demo cache headers and fresh responses
-npm run icons      # regenerate icons/*.png from tools/icon.svg
-python3 tools/preview-server.py 8080   # serve the demo at http://localhost:8080/
+npm install
+npm test                 # canvas, native popup, background and demo integration checks
+npm run test:preview      # HTTP cache/redirect regression checks (Python stdlib)
+npm run icons            # regenerate icons/*.png from tools/icon.svg
+python3 tools/preview-server.py 8080
+# Open http://localhost:8080/ on your development machine.
 ```
 
-`npm test` loads `content/overlay.js` into a jsdom page with a fake `chrome` API and drives
-it the way a pointer, the panel and the options page do — clicking empty canvas to place
-notes, typing, restyling one note without touching the others, dragging by the grip,
-deleting, clearing, re-injection, storage races, migrating 0.1 notes into a block, and the
-message flow the demo page uses.
+The web preview displays **v0.3.0 · popup controls**. Click its purple icon to open the
+same `popup/popup.html` used by Brave, not a duplicate set of demo controls. The demo-only
+browser API bridge connects that iframe to the real `content/overlay.js`. The popup bridge
+is inert in installed extension contexts and cannot replace Brave's extension APIs.
 
-### The demo page
+The preview sends `Cache-Control: no-store`, always serves fresh files rather than 304
+responses, and versions its HTML asset URLs, including the popup iframe and its scripts.
+Reload an already-open preview tab after edits to see the new build.
 
-`demo/index.html` runs the **real** content script on an ordinary web page with a small
-stand-in for the browser APIs, so you can try the whole thing before installing anything:
-the pretend browser bar at the top has a clickable Overlay Ink icon that behaves exactly
-like the toolbar button, badge and all. The demo displays the current version, uses
-versioned asset URLs, and the preview server disables caching so a reload picks up changes.
+Tests use jsdom with a simulated browser API. They cover popup-only controls, closing and
+reopening without toggling, retaining note selection across focus changes, per-note style,
+defaults, immediate-save-on-close, placing/moving/deleting notes, read-only/click-through
+View styles, storage sync, migration, blocked pages and the real popup/demo integration.
+jsdom has no layout engine, so drag geometry is shimmed and real Brave installation remains
+a manual check.
+
+## Not implemented yet
+
+- Freehand drawing/highlighting, arrows or shapes
+- Undo/redo for deleting notes
+- Per-site canvases
+- Cross-device sync
+- Ruled lines or sticky-note backgrounds
 
 ## Licence
 
-Extension code: MIT. Handwriting font: *Patrick Hand* by Patrick Wagesreiter, SIL Open Font
-License 1.1 (`fonts/OFL.txt`).
+Extension code: MIT. *Patrick Hand* by Patrick Wagesreiter: SIL Open Font License 1.1
+(`fonts/OFL.txt`).
