@@ -1,6 +1,6 @@
 {
   "name": "overlay-ink",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Transparent screen overlay / ink layer extension for Brave and Chrome.",
   "scripts": {

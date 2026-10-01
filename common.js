@@ -12,8 +12,12 @@
 
   const STORAGE = Object.freeze({
     settings: 'oiSettings',
-    text: 'oiText'
+    blocks: 'oiBlocks',
+    // Written by 0.1.x, kept so older notes can be migrated into a block.
+    legacyText: 'oiText'
   });
+
+  const BLOCKS_VERSION = 2;
 
   const MODES = Object.freeze(['edit', 'view']);
 
@@ -93,8 +97,55 @@
     };
   }
 
+  function makeId() {
+    return 'b' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  }
+
+  /**
+   * A block is one piece of writing pinned somewhere on the page. `x` and `y`
+   * are fractions of the viewport (0..1) so a note made in a big window still
+   * lands somewhere sensible in a small one.
+   */
+  function normaliseBlock(raw, fallback) {
+    const b = raw && typeof raw === 'object' ? raw : {};
+    const base = fallback || {};
+    const x = Number(b.x);
+    const y = Number(b.y);
+    const fontSize = Number(b.fontSize);
+    return {
+      id: typeof b.id === 'string' && b.id ? b.id : makeId(),
+      x: Number.isFinite(x) ? clamp(x, 0, 1) : (Number.isFinite(base.x) ? base.x : 0.06),
+      y: Number.isFinite(y) ? clamp(y, 0, 1) : (Number.isFinite(base.y) ? base.y : 0.2),
+      text: typeof b.text === 'string' ? b.text : '',
+      color: isHexColor(b.color) ? expandHex(b.color) : (base.color || DEFAULT_SETTINGS.color),
+      fontSize: Number.isFinite(fontSize)
+        ? clamp(Math.round(fontSize), MIN_FONT_SIZE, MAX_FONT_SIZE)
+        : (base.fontSize || DEFAULT_SETTINGS.fontSize),
+      font: FONTS.some(function (f) { return f.id === b.font; }) ? b.font : (base.font || DEFAULT_SETTINGS.font)
+    };
+  }
+
+  /** Accepts the stored { version, blocks } wrapper, a bare array, or garbage. */
+  function normaliseBlocks(raw, fallback) {
+    const list = Array.isArray(raw) ? raw : (raw && Array.isArray(raw.blocks) ? raw.blocks : []);
+    return list
+      .filter(function (b) { return b && typeof b === 'object'; })
+      .map(function (b) { return normaliseBlock(b, fallback); })
+      .filter(function (b) { return b.text.trim() !== ''; });
+  }
+
+  function blocksForStorage(blocks) {
+    return {
+      version: BLOCKS_VERSION,
+      blocks: (blocks || []).map(function (b) {
+        return { id: b.id, x: b.x, y: b.y, text: b.text, color: b.color, fontSize: b.fontSize, font: b.font };
+      })
+    };
+  }
+
   scope.__overlayInkCommon = Object.freeze({
     STORAGE: STORAGE,
+    BLOCKS_VERSION: BLOCKS_VERSION,
     MODES: MODES,
     DEFAULT_SETTINGS: DEFAULT_SETTINGS,
     PRESET_COLORS: PRESET_COLORS,
@@ -108,6 +159,10 @@
     fontStack: fontStack,
     isSupportedUrl: isSupportedUrl,
     isBlockedUrl: isBlockedUrl,
-    normaliseSettings: normaliseSettings
+    normaliseSettings: normaliseSettings,
+    makeId: makeId,
+    normaliseBlock: normaliseBlock,
+    normaliseBlocks: normaliseBlocks,
+    blocksForStorage: blocksForStorage
   });
 })(typeof globalThis !== 'undefined' ? globalThis : this);

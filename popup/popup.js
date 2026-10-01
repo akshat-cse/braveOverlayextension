@@ -191,7 +191,7 @@
         : 'View mode — the page works normally';
     } else {
       el.onOffLabel.textContent = 'Overlay is off';
-      el.onOffHint.textContent = 'Turn it on to write on this page';
+      el.onOffHint.textContent = 'Turn it on, then click anywhere to write';
     }
   }
 
@@ -279,21 +279,21 @@
       if (!clearArmed) {
         clearArmed = true;
         el.clear.classList.add('armed');
-        el.clear.textContent = 'Click again to erase';
+        el.clear.textContent = 'Click again to erase every note';
         clearTimeout(clearTimer);
         clearTimer = setTimeout(function () {
           clearArmed = false;
           el.clear.classList.remove('armed');
-          el.clear.textContent = 'Clear note text';
+          el.clear.textContent = 'Clear all notes';
         }, 3000);
         return;
       }
       clearTimeout(clearTimer);
       clearArmed = false;
       el.clear.classList.remove('armed');
-      el.clear.textContent = 'Clear note text';
+      el.clear.textContent = 'Clear all notes';
       try {
-        chrome.storage.local.set({ [C.STORAGE.text]: '' }, function () { void chrome.runtime.lastError; });
+        chrome.storage.local.set({ [C.STORAGE.blocks]: { version: C.BLOCKS_VERSION, blocks: [] }, [C.STORAGE.legacyText]: '' }, function () { void chrome.runtime.lastError; });
       } catch (err) { /* ignore */ }
       sendToTab({ type: 'oi:clear' });
     });

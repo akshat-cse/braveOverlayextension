@@ -10,7 +10,7 @@
     <img class="logo" src="../icons/icon32.png" alt="" width="32" height="32">
     <div class="headText">
       <h1>Overlay Ink</h1>
-      <p id="subtitle">A transparent note on top of the page</p>
+      <p id="subtitle">Transparent notes anywhere on the page</p>
     </div>
   </header>
 
@@ -22,12 +22,13 @@
     </label>
     <div class="switchText">
       <strong id="onOffLabel">Overlay is off</strong>
-      <span id="onOffHint">Turn it on to write on this page</span>
+      <span id="onOffHint">Turn it on, then click anywhere to write</span>
     </div>
   </div>
 
   <p class="banner" id="banner" hidden></p>
 
+  <p class="sectionLabel">Defaults for new notes</p>
   <section class="card">
     <div class="row">
       <span class="label">Mode</span>
@@ -69,18 +70,18 @@
     </div>
   </section>
 
-  <p class="note">Only the text is drawn on the page — the overlay itself stays fully transparent. Background above 0% adds a faint panel behind the note.</p>
+  <p class="note">Colour, size and font here are the defaults for new notes — select a note on the page to restyle it. Only your writing is drawn: the overlay itself stays fully transparent (background above 0% adds a faint panel).</p>
 
   <div class="actions">
-    <button type="button" class="btn" id="clear">Clear note text</button>
-    <button type="button" class="btn" id="reset">Reset settings</button>
+    <button type="button" class="btn" id="clear">Clear all notes</button>
+    <button type="button" class="btn" id="reset">Reset defaults</button>
   </div>
 
   <footer class="foot">
     <p>Toggle from the toolbar icon or <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>O</kbd>.</p>
     <button type="button" class="link" id="shortcuts">Change keyboard shortcut</button>
     <p class="fine" id="shortcutNote" hidden>Open <code>brave://extensions/shortcuts</code> and find “Overlay Ink”.</p>
-    <p class="fine">Edit mode pauses the page so you can write; View mode leaves the note visible and keeps the page clickable. <kbd>Esc</kbd> in the note switches to View.</p>
+    <p class="fine">Click anywhere on the page to place a note, drag its <b>&#10287;</b> grip to move it. In Edit mode the page pauses so clicks land in your notes; in View mode they stay visible while the page works normally.</p>
   </footer>
 
   <script src="../common.js"></script>

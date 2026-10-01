@@ -120,6 +120,7 @@ input[type="range"] { width: 148px; accent-color: var(--accent); background: tra
 }
 
 .note { margin: 10px 2px 0; font-size: 11px; color: var(--muted); }
+.sectionLabel { margin: 14px 2px 6px; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
 
 .actions { display: flex; gap: 8px; margin-top: 11px; }
 .btn {

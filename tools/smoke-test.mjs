@@ -4,9 +4,10 @@
  *   npm install
  *   npm test
  *
- * Loads common.js + content/overlay.js into a jsdom page with a fake chrome
- * API and drives the overlay the way the popup and the toolbar button would:
- * toggle it, switch modes, type, hide, re-inject.
+ * Loads common.js + content/overlay.js into a jsdom page with a fake chrome API
+ * and drives the overlay the way the toolbar button, the popup and the options
+ * page would: toggle it, click the canvas to place text, type, colour, move,
+ * delete, hide, re-inject.
  */
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -48,7 +49,7 @@ function createFakeChrome(store) {
     state.storageListeners.forEach((fn) => fn(changes, area));
   }
 
-  const chrome = {
+  return {
     runtime: {
       id: 'smoke-test',
       lastError: undefined,
@@ -57,9 +58,7 @@ function createFakeChrome(store) {
         state.sent.push(message);
         if (callback) callback(undefined);
       },
-      onMessage: {
-        addListener: (fn) => state.runtimeListeners.push(fn)
-      }
+      onMessage: { addListener: (fn) => state.runtimeListeners.push(fn) }
     },
     storage: {
       local: {
@@ -80,20 +79,15 @@ function createFakeChrome(store) {
           if (callback) setTimeout(() => callback(), 0);
         }
       },
-      onChanged: {
-        addListener: (fn) => state.storageListeners.push(fn)
-      }
+      onChanged: { addListener: (fn) => state.storageListeners.push(fn) }
     },
     _state: state,
     _sendToContent: (message) => {
-      const fromContent = state.runtimeListeners;
       let response;
-      fromContent.slice().forEach((fn) => fn(message, {}, (value) => { response = value; }));
+      state.runtimeListeners.slice().forEach((fn) => fn(message, {}, (value) => { response = value; }));
       return response;
     }
   };
-
-  return chrome;
 }
 
 /* ------------------------------------------------------------------- setup -- */
@@ -112,13 +106,12 @@ function injectScript(win, source) {
   return result;
 }
 
-function bootPage() {
+function bootPage(store = {}) {
   const dom = new JSDOM('<!doctype html><html><body><h1>demo page</h1></body></html>', {
     url: 'https://example.com/article',
     runScripts: 'dangerously',
     pretendToBeVisual: true
   });
-  const store = {};
   const chrome = createFakeChrome(store);
   dom.window.chrome = chrome;
   injectScript(dom.window, commonSource);
@@ -126,9 +119,46 @@ function bootPage() {
   return { dom, win: dom.window, chrome, store };
 }
 
+/** Test helpers: reach into the overlay the way a user's pointer does. */
+function overlay(win) {
+  const host = win.document.querySelector('overlay-ink');
+  const shadow = host && host.shadowRoot;
+  return {
+    host,
+    shadow,
+    canvas: shadow && shadow.querySelector('.canvas'),
+    bar: shadow && shadow.querySelector('.bar'),
+    hint: shadow && shadow.querySelector('.hint'),
+    blocks: () => Array.from(shadow.querySelectorAll('.blk')),
+    inks: () => Array.from(shadow.querySelectorAll('.ink')),
+    /** Click the canvas at a point — creates a placed text block. */
+    clickAt(x, y) {
+      const event = new win.MouseEvent('pointerdown', { bubbles: true, cancelable: true, clientX: x, clientY: y, button: 0 });
+      shadow.querySelector('.canvas').dispatchEvent(event);
+      return this.blocks()[this.blocks().length - 1];
+    },
+    click(selector) {
+      const el = typeof selector === 'string' ? shadow.querySelector(selector) : selector;
+      el.dispatchEvent(new win.MouseEvent('click', { bubbles: true, composed: true }));
+      return el;
+    },
+    type(text, ink) {
+      const target = ink || shadow.activeElement || shadow.querySelector('.ink');
+      target.textContent = text;
+      target.dispatchEvent(new win.Event('input', { bubbles: true }));
+      return target;
+    },
+    /** Move focus away, the way clicking elsewhere on the page does. */
+    finish(ink) {
+      try { ink.blur(); } catch (err) { /* ignore */ }
+      ink.dispatchEvent(new win.FocusEvent('focusout', { bubbles: true, relatedTarget: null }));
+    }
+  };
+}
+
 /* -------------------------------------------------------------------- run -- */
 
-section('common.js — settings normalisation');
+section('common.js — settings and blocks');
 {
   const g = {};
   new Function('globalThis', commonSource)(g);
@@ -144,6 +174,14 @@ section('common.js — settings normalisation');
   check('blocked pages detected', C.isBlockedUrl('https://chromewebstore.google.com/detail/x') === true);
   check('normal pages allowed', C.isSupportedUrl('https://example.com') && !C.isBlockedUrl('https://example.com'));
   check('font stack is permissive', C.fontStack('sans').includes('sans-serif'));
+
+  const block = C.normaliseBlock({ x: 2, y: -1, text: 'hi', color: 'nope' }, null);
+  check('block position clamped', block.x === 1 && block.y === 0, block);
+  check('block colour falls back', block.color === '#ff2d55');
+  check('blocks accept the stored wrapper', C.normaliseBlocks({ version: 2, blocks: [{ text: 'a' }] }).length === 1);
+  check('empty blocks are dropped', C.normaliseBlocks({ blocks: [{ text: '   ' }, { text: 'x' }] }).length === 1);
+  check('blocks survive a round trip',
+    C.normaliseBlocks(C.blocksForStorage([C.normaliseBlock({ text: 'keep me' })])).length === 1);
 }
 
 section('content script — first run installs without touching the DOM');
@@ -156,109 +194,238 @@ section('content script — first run installs without touching the DOM');
 
 section('toggle on / off from the toolbar');
 {
-  const { win, chrome, store } = bootPage();
+  const { win, chrome } = bootPage();
+  const state = win.__overlayInkToggle();
+  const ui = overlay(win);
 
-  const afterToggle = win.__overlayInkToggle();
-  const host = win.document.querySelector('overlay-ink');
-  check('toggle reports visible', afterToggle.visible === true, afterToggle);
-  check('host element is on the page', !!host);
-  check('shadow root is open', !!(host && host.shadowRoot));
+  check('toggle reports visible', state.visible === true, state);
+  check('host element is on the page', !!ui.host);
+  check('shadow root is open', !!ui.shadow);
   check('state message reached the worker', chrome._state.sent.some((m) => m.type === 'oi:state' && m.visible));
-
-  const shadow = host.shadowRoot;
-  const wrap = shadow.querySelector('.wrap');
-  const note = shadow.querySelector('.note');
-  check('bar rendered', !!shadow.querySelector('.bar'));
-  check('8 preset swatches + custom', shadow.querySelectorAll('.swatch').length === 9);
-  check('starts in the stored mode', wrap.dataset.mode === 'edit');
-  check('edit button is pressed', shadow.querySelector('.segbtn[data-mode="edit"]').getAttribute('aria-pressed') === 'true');
-  check('note is a textarea', note.tagName === 'TEXTAREA');
+  check('toolbar rendered', !!ui.bar);
+  check('click surface rendered', !!ui.canvas);
+  check('8 preset swatches + custom', ui.shadow.querySelectorAll('.swatch').length === 9);
+  check('colour hex field rendered', !!ui.shadow.querySelector('.hexInput'));
+  check('starts in the stored mode', ui.shadow.querySelector('.wrap').dataset.mode === 'edit');
+  check('edit button is pressed', ui.shadow.querySelector('.segbtn[data-mode="edit"]').getAttribute('aria-pressed') === 'true');
+  check('the canvas only catches clicks in edit mode',
+    ui.shadow.querySelector('style').textContent.includes('.wrap[data-mode="edit"] .canvas { pointer-events: auto'));
 
   check('toggle reports hidden again', win.__overlayInkToggle().visible === false);
   check('host removed from the page', win.document.querySelector('overlay-ink') === null);
-  check('note survived in storage', store.oiText === '' && 'oiText' in store);
 }
 
-section('typing, persistence and re-opening');
+function getComputedStyleSafe() { return true; } // jsdom has no real layout
+
+section('click anywhere on the canvas and write there');
 {
   const { win, store } = bootPage();
   win.__overlayInkToggle();
-  const shadow = win.document.querySelector('overlay-ink').shadowRoot;
-  const note = shadow.querySelector('.note');
+  const ui = overlay(win);
 
-  note.value = 'Remember: buy milk';
-  note.dispatchEvent(new win.Event('input', { bubbles: true }));
+  check('nothing on the canvas yet', ui.blocks().length === 0);
 
-  check('text kept in memory', win.__overlayInkState().visible === true);
-  await sleep(500); // the save is debounced
-  check('text stored globally', store.oiText === 'Remember: buy milk', store.oiText);
+  const first = ui.clickAt(220, 300);
+  check('a block appears where you clicked', ui.blocks().length === 1);
+  check('block is placed at the click point', first.style.left === '220px' && first.style.top === '300px',
+    { left: first.style.left, top: first.style.top });
+  check('the new block has the caret', ui.shadow.activeElement === first.querySelector('.ink'));
 
-  win.__overlayInkToggle();               // hide
-  win.__overlayInkToggle();               // show again
-  const reopened = win.document.querySelector('overlay-ink').shadowRoot.querySelector('.note');
-  check('text restored on re-open', reopened.value === 'Remember: buy milk', reopened.value);
+  ui.type('first note', first.querySelector('.ink'));
+  await sleep(400);
+  const saved = store.oiBlocks;
+  check('blocks are stored as the canvas', saved && saved.version === 2 && saved.blocks.length === 1, saved);
+  check('text stored per block', saved.blocks[0].text === 'first note', saved.blocks[0]);
+  check('position stored as a fraction', Math.abs(saved.blocks[0].x - 220 / win.innerWidth) < 0.001, saved.blocks[0]);
+
+  // A second note somewhere completely different — not below the first.
+  win.document.querySelector('overlay-ink').shadowRoot
+    .querySelector('.ink').dispatchEvent(new win.FocusEvent('focusout', { bubbles: true, relatedTarget: null }));
+  const second = ui.clickAt(640, 520);
+  check('second block placed independently', ui.blocks().length === 2);
+  check('second block is where you clicked', second.style.left === '640px' && second.style.top === '520px');
+  ui.type('second note', second.querySelector('.ink'));
+  await sleep(400);
+  check('both notes kept', store.oiBlocks.blocks.length === 2 && store.oiBlocks.blocks[1].text === 'second note');
+
+  const reloaded = bootPage(store);
+  reloaded.win.__overlayInkToggle();
+  await sleep(30); // storage reads answer on the next tick
+  const ui2 = overlay(reloaded.win);
+  check('notes come back after a reload', ui2.blocks().length === 2);
+  check('with their text', ui2.inks().map((i) => i.textContent).join('|') === 'first note|second note');
 }
 
-section('picking options from the in-page toolbar');
+section('typing with nothing selected starts a note');
+{
+  const { win } = bootPage();
+  win.__overlayInkToggle();
+  const ui = overlay(win);
+
+  const event = new win.KeyboardEvent('keydown', { key: 'H', bubbles: true, cancelable: true });
+  win.dispatchEvent(event);
+  check('a block was created by the keystroke', ui.blocks().length === 1);
+  check('the typed letter landed in it', ui.inks()[0].textContent === 'H', ui.inks()[0].textContent);
+  check('the event was consumed', event.defaultPrevented === true);
+}
+
+section('colour, size and font apply to the selected note, or set the default');
 {
   const { win, store } = bootPage();
   win.__overlayInkToggle();
-  const shadow = win.document.querySelector('overlay-ink').shadowRoot;
-  const wrap = shadow.querySelector('.wrap');
-  const win2 = win;
+  const ui = overlay(win);
 
-  function click(selector) {
-    const el = shadow.querySelector(selector);
-    el.dispatchEvent(new win2.MouseEvent('click', { bubbles: true, composed: true }));
-  }
+  const first = ui.clickAt(120, 200);
+  ui.type('red one', first.querySelector('.ink'));
+  ui.finish(first.querySelector('.ink'));
+  await sleep(400); // leaving a note settles, then its save is debounced
 
-  click('[data-mode="view"]');
-  check('view mode applied', wrap.dataset.mode === 'view');
-  check('view mode persisted', store.oiSettings.mode === 'view');
+  // Nothing selected now: picking a colour sets the default for new writing.
+  ui.click('.swatch[data-color="#0a84ff"]');
+  await sleep(10);
+  check('with nothing selected the colour becomes the default', store.oiSettings.color === '#0a84ff', store.oiSettings.color);
+  check('the existing note keeps its own colour', store.oiBlocks.blocks[0].color === '#ff2d55', store.oiBlocks.blocks[0].color);
 
-  click('.swatch[data-color="#0a84ff"]');
-  check('colour applied', store.oiSettings.color === '#0a84ff');
-  check('swatch marked selected', shadow.querySelector('[data-color="#0a84ff"]').getAttribute('aria-pressed') === 'true');
+  // A new note picks up the new default.
+  const second = ui.clickAt(400, 400);
+  ui.type('blue one', second.querySelector('.ink'));
+  await sleep(400);
+  check('new note uses the new colour', store.oiBlocks.blocks[1].color === '#0a84ff', store.oiBlocks.blocks[1]);
 
-  const size = shadow.querySelector('.sizeRange');
-  size.value = '72';
+  // Selecting a note and picking a colour restyles that note only.
+  const firstInk = ui.blocks()[0].querySelector('.ink');
+  firstInk.dispatchEvent(new win.FocusEvent('focus', { bubbles: false }));
+  firstInk.dispatchEvent(new win.MouseEvent('pointerdown', { bubbles: true }));
+  ui.click('.swatch[data-color="#34c759"]');
+  await sleep(400);
+  check('selected note restyled', store.oiBlocks.blocks[0].color === '#34c759', store.oiBlocks.blocks[0].color);
+  check('the other note untouched', store.oiBlocks.blocks[1].color === '#0a84ff');
+
+  // Hex field.
+  const hex = ui.shadow.querySelector('.hexInput');
+  hex.value = '#ff8800';
+  hex.dispatchEvent(new win.Event('input', { bubbles: true }));
+  hex.dispatchEvent(new win.Event('change', { bubbles: true }));
+  await sleep(400);
+  check('hex entry restyles the selected note', store.oiBlocks.blocks[0].color === '#ff8800', store.oiBlocks.blocks[0].color);
+
+  // Size and font, still on the selected note.
+  const size = ui.shadow.querySelector('.sizeRange');
+  size.value = '88';
   size.dispatchEvent(new win.Event('input', { bubbles: true }));
-  check('size readout follows the slider', shadow.querySelector('.sizeVal').textContent === '72px');
-  await sleep(400); // saved on a short debounce
-  check('size persisted', store.oiSettings.fontSize === 72, store.oiSettings.fontSize);
-  check('earlier choices not lost', store.oiSettings.color === '#0a84ff', store.oiSettings);
-
-  const font = shadow.querySelector('.fonts');
+  size.dispatchEvent(new win.Event('change', { bubbles: true }));
+  const font = ui.shadow.querySelector('.fonts');
   font.value = 'mono';
   font.dispatchEvent(new win.Event('change', { bubbles: true }));
-  check('font persisted', store.oiSettings.font === 'mono');
-
-  click('.shadowBtn');
-  check('text outline toggles', store.oiSettings.textShadow === false);
-
-  // Clear needs two clicks, like a "sure?" confirmation.
-  click('.clearBtn');
-  check('clear asks first', shadow.querySelector('.clearBtn').classList.contains('armed'));
-  click('.clearBtn');
-  check('second click clears the note', store.oiText === '');
-
-  await sleep(350);
+  await sleep(400);
+  check('size applied to the selected note', store.oiBlocks.blocks[0].fontSize === 88, store.oiBlocks.blocks[0].fontSize);
+  check('font applied to the selected note', store.oiBlocks.blocks[0].font === 'mono');
+  check('other note keeps its own size', store.oiBlocks.blocks[1].fontSize === 44, store.oiBlocks.blocks[1].fontSize);
+  check('style reaches the element', ui.blocks()[0].style.getPropertyValue('--sz') === '88px');
 }
 
-section('messages from the popup');
+section('moving and deleting a note');
+{
+  const { win, store } = bootPage();
+  win.__overlayInkToggle();
+  const ui = overlay(win);
+
+  const el = ui.clickAt(200, 200);
+  ui.type('drag me', el.querySelector('.ink'));
+  ui.finish(el.querySelector('.ink'));
+  await sleep(400);
+
+  // jsdom has no layout engine: report the rectangle a browser would, so the
+  // drag maths can be checked the way it actually behaves on a page.
+  el.getBoundingClientRect = () => ({
+    left: parseFloat(el.style.left) || 0,
+    top: parseFloat(el.style.top) || 0,
+    width: 120, height: 40, right: 0, bottom: 0, x: 0, y: 0
+  });
+
+  const grip = el.querySelector('.grip');
+  grip.dispatchEvent(new win.MouseEvent('pointerdown', { bubbles: true, cancelable: true, clientX: 200, clientY: 200, button: 0, pointerId: 1 }));
+  win.dispatchEvent(new win.MouseEvent('pointermove', { clientX: 500, clientY: 380, pointerId: 1 }));
+  win.dispatchEvent(new win.MouseEvent('pointerup', { clientX: 500, clientY: 380, pointerId: 1 }));
+  await sleep(400);
+
+  check('the note moved on screen', el.style.left === '500px' && el.style.top === '380px', { left: el.style.left, top: el.style.top });
+  check('the move was saved', Math.abs(store.oiBlocks.blocks[0].x - 500 / win.innerWidth) < 0.001, store.oiBlocks.blocks[0]);
+
+  ui.click(el.querySelector('.del'));
+  await sleep(400);
+  check('delete removes it from the canvas', ui.blocks().length === 0);
+  check('delete is saved', store.oiBlocks.blocks.length === 0, store.oiBlocks);
+}
+
+section('an empty note disappears when you click away');
+{
+  const { win, store } = bootPage();
+  win.__overlayInkToggle();
+  const ui = overlay(win);
+
+  const el = ui.clickAt(300, 300);
+  check('empty note exists while it has the caret', ui.blocks().length === 1);
+  ui.finish(el.querySelector('.ink'));
+  await sleep(400);
+  check('it is dropped once you leave it', ui.blocks().length === 0);
+
+  const kept = ui.clickAt(300, 300);
+  ui.type('not empty', kept.querySelector('.ink'));
+  ui.finish(kept.querySelector('.ink'));
+  await sleep(400);
+  check('a note with text stays', ui.blocks().length === 1 && store.oiBlocks.blocks.length === 1);
+}
+
+section('clear wipes the canvas, colour survives');
+{
+  const { win, store } = bootPage();
+  win.__overlayInkToggle();
+  const ui = overlay(win);
+
+  ui.type('a', ui.clickAt(100, 150).querySelector('.ink'));
+  ui.type('b', ui.clickAt(400, 300).querySelector('.ink'));
+  await sleep(400);
+  check('two notes before clearing', store.oiBlocks.blocks.length === 2);
+
+  const clearBtn = ui.shadow.querySelector('.clearBtn');
+  ui.click(clearBtn);
+  check('clear asks first', clearBtn.classList.contains('armed'));
+  ui.click(clearBtn);
+  await sleep(400);
+  check('canvas emptied', ui.blocks().length === 0);
+  check('storage emptied', store.oiBlocks.blocks.length === 0, store.oiBlocks);
+}
+
+section('the overlay stays transparent');
+{
+  const { win } = bootPage();
+  win.__overlayInkToggle();
+  const ui = overlay(win);
+  const style = ui.shadow.querySelector('style').textContent;
+
+  check('background defaults to 0%', ui.shadow.querySelector('.bgRange').value === '0');
+  check('scrim uses the background variable', style.includes('--oi-bg, transparent'));
+  check('the note itself has no background', /\.blk \.ink \{[^}]*color: var\(--c/.test(style));
+  check('canvas is transparent (no background rule)', !/\.canvas \{[^}]*background:/.test(style));
+}
+
+section('messages from the panel');
 {
   const { win, chrome } = bootPage();
   const state = chrome._sendToContent({ type: 'oi:set-visible', visible: true });
-  check('popup can switch the overlay on', state.visible === true, state);
-  check('host exists after popup toggle', !!win.document.querySelector('overlay-ink'));
+  check('panel can switch the overlay on', state.visible === true, state);
 
   const viewState = chrome._sendToContent({ type: 'oi:set-mode', mode: 'view' });
-  check('popup can switch mode', viewState.mode === 'view', viewState);
+  check('panel can switch mode', viewState.mode === 'view', viewState);
   check('mode applied in the DOM',
     win.document.querySelector('overlay-ink').shadowRoot.querySelector('.wrap').dataset.mode === 'view');
 
+  const cleared = chrome._sendToContent({ type: 'oi:clear' });
+  check('panel can clear the canvas', cleared.blocks === 0);
+
   const off = chrome._sendToContent({ type: 'oi:set-visible', visible: false });
-  check('popup can switch it off', off.visible === false);
+  check('panel can switch it off', off.visible === false);
   check('host removed', win.document.querySelector('overlay-ink') === null);
 }
 
@@ -266,42 +433,69 @@ section('escape leaves edit mode; alt+shift+h hides');
 {
   const { win } = bootPage();
   win.__overlayInkToggle();
-  const shadow = win.document.querySelector('overlay-ink').shadowRoot;
-  const note = shadow.querySelector('.note');
+  const ui = overlay(win);
+  const el = ui.clickAt(200, 250);
+  ui.type('note', el.querySelector('.ink'));
 
-  const esc = new win.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
-  note.dispatchEvent(esc);
-  check('escape switched to view', shadow.querySelector('.wrap').dataset.mode === 'view');
+  const escInBlock = new win.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+  el.querySelector('.ink').dispatchEvent(escInBlock);
+  await sleep(20);
+  check('escape inside a note deselects it', ui.shadow.querySelectorAll('.blk[data-selected="true"]').length === 0);
+  check('still in edit mode after the first escape', ui.shadow.querySelector('.wrap').dataset.mode === 'edit');
+
+  const escOnPage = new win.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+  win.dispatchEvent(escOnPage);
+  check('a second escape switches to view', ui.shadow.querySelector('.wrap').dataset.mode === 'view');
 
   const hide = new win.KeyboardEvent('keydown', { key: 'H', altKey: true, shiftKey: true, bubbles: true, cancelable: true });
   win.dispatchEvent(hide);
   check('alt+shift+h hid the overlay', win.document.querySelector('overlay-ink') === null);
 }
 
+section('notes from 0.1 are not lost');
+{
+  const { win, store } = bootPage({ oiText: 'written with the old version' });
+  win.__overlayInkToggle();
+  await sleep(30);
+  const ui = overlay(win);
+  check('the old note became a block', ui.blocks().length === 1);
+  check('with its text intact', ui.inks()[0].textContent === 'written with the old version');
+  check('and was written back as a block', store.oiBlocks.blocks[0].text === 'written with the old version', store.oiBlocks);
+  check('the old key was cleared', store.oiText === '');
+}
+
 section('re-injecting the content script is harmless');
 {
   const { win } = bootPage();
   win.__overlayInkToggle();
+  const ui = overlay(win);
+  ui.type('keep', ui.clickAt(100, 120).querySelector('.ink'));
   const result = injectScript(win, overlaySource);
   check('second run reports already loaded', result && result.alreadyLoaded === true, result);
   check('still exactly one overlay', win.document.querySelectorAll('overlay-ink').length === 1);
-  check('still visible', win.__overlayInkState().visible === true);
+  check('the canvas is untouched', ui.shadow.querySelectorAll('.blk').length === 1);
 }
 
 section('storage changes from the options page reach an open overlay');
 {
-  const { win, store } = bootPage();
+  const { win } = bootPage();
   win.__overlayInkToggle();
-  const shadow = win.document.querySelector('overlay-ink').shadowRoot;
+  const ui = overlay(win);
 
-  // the same call the options page makes
   win.chrome.storage.local.set({
     oiSettings: { mode: 'view', color: '#34c759', fontSize: 30, font: 'serif', bgOpacity: 25, textShadow: false }
   });
   await sleep(10);
+  check('mode followed the options page', ui.shadow.querySelector('.wrap').dataset.mode === 'view');
+  check('size followed the options page', ui.shadow.querySelector('.sizeRange').value === '30');
+  check('background followed the options page', ui.shadow.querySelector('.bgRange').value === '25');
 
-  check('mode followed the options page', shadow.querySelector('.wrap').dataset.mode === 'view');
-  check('size followed the options page', shadow.querySelector('.sizeRange').value === '30');
+  win.chrome.storage.local.set({
+    oiBlocks: { version: 2, blocks: [{ id: 'x1', x: 0.1, y: 0.1, text: 'typed in another tab', color: '#ffffff', fontSize: 20, font: 'sans' }] }
+  });
+  await sleep(10);
+  check('notes from another tab appear', ui.blocks().length === 1);
+  check('with their text', ui.inks()[0].textContent === 'typed in another tab');
 }
 
 section('manifest.json points at files that exist');
@@ -343,8 +537,10 @@ section('demo page (demo/index.html) boots the real content script');
 
   const icon = win.document.getElementById('toolbarIcon');
   icon.dispatchEvent(new win.MouseEvent('click', { bubbles: true }));
-  check('demo: clicking the toolbar icon opens the overlay', !!win.document.querySelector('overlay-ink'));
+  const host = win.document.querySelector('overlay-ink');
+  check('demo: clicking the toolbar icon opens the overlay', !!host);
   check('demo: badge follows the state', win.document.getElementById('badge').hidden === false);
+  check('demo: the canvas is there to write on', !!host.shadowRoot.querySelector('.canvas'));
 
   icon.dispatchEvent(new win.MouseEvent('click', { bubbles: true }));
   check('demo: clicking again hides it', win.document.querySelector('overlay-ink') === null);

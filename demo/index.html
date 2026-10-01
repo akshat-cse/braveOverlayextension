@@ -27,34 +27,37 @@
       <h1>This page is pretending to be a website</h1>
       <p class="lede">
         Click the purple icon in the bar above — that is exactly what the <strong>Overlay Ink</strong> toolbar
-        button does in Brave. The transparent layer appears on top of this page, with a small toolbar of its own.
+        button does in Brave. The transparent layer appears on top of this page, with a small toolbar of its own:
+        click anywhere and the caret lands right there, so notes go where you put them.
       </p>
 
       <div class="grid">
         <section>
           <h2>Try this</h2>
           <ol>
-            <li><strong>Type</strong> straight away — the overlay opens in Edit mode and the caret is already in place.</li>
-            <li>Pick an <strong>ink colour</strong>, size, font or background from the top toolbar.</li>
-            <li>Hit <kbd>Esc</kbd> or click <strong>View</strong> — now the note stays put and this page becomes clickable again.</li>
-            <li>Click the icon again (or press <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>H</kbd>) to hide it. Your text is remembered.</li>
+            <li><strong>Click anywhere</strong> on this page — a caret appears exactly there and you type in place. Click somewhere else and that becomes a second note; they never run into each other.</li>
+            <li>Pick an <strong>ink colour</strong>, size or font from the top toolbar. With a note selected it changes that note; with nothing selected it sets the style for the next one.</li>
+            <li>Drag a note's <strong>&#10287;</strong> grip to move it anywhere, or <strong>&#10005;</strong> to delete it.</li>
+            <li>Hit <kbd>Esc</kbd> or click <strong>View</strong> — every note stays put and this page becomes clickable again.</li>
+            <li>Click the icon again (or press <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>H</kbd>) to hide it all. Your notes are remembered.</li>
           </ol>
         </section>
         <section>
           <h2>What it is</h2>
           <ul>
-            <li>A fully transparent layer — only your text is drawn, nothing else.</li>
-            <li>The note follows you to every site and every tab, so you can jot something down while reading.</li>
-            <li>Everything stays on your machine: the text lives in the extension's local storage.</li>
+            <li>A fully transparent layer — only your writing is drawn, nothing else.</li>
+            <li>A canvas, not a single text box: write in the margin, beside a paragraph, wherever it makes sense, in whatever colour you like.</li>
+            <li>Notes follow you to every site and every tab, and stay on your machine — they live in the extension's local storage.</li>
           </ul>
         </section>
       </div>
 
       <h2>Why the page stops responding in Edit mode</h2>
       <p>
-        While you write, clicks have to reach the note instead of the links underneath, otherwise the page would
-        navigate away mid-sentence. That is what <strong>Edit</strong> mode does. Switch to <strong>View</strong>
-        and every click goes back to the page, so you can keep reading, scrolling and clicking with the note
+        While you place and type notes, clicks have to reach the overlay instead of the links underneath,
+        otherwise the page would navigate away mid-sentence. That is what <strong>Edit</strong> mode does.
+        Switch to <strong>View</strong> and every click goes back to the page, so you can keep reading,
+        scrolling and clicking with your notes
         floating on top of everything.
       </p>
       <p>
@@ -66,7 +69,8 @@
       <p>
         Long passages of text are here on purpose: colour, size and the text outline option exist because a note
         needs to stay readable over a white article, a dark terminal or a photo. Set the background slider above
-        0% if you want a faint panel behind the words.
+        0% if you want a faint panel behind the words — every note keeps its own colour, so one canvas can hold
+        a red reminder and a blue question.
       </p>
       <p class="muted">
         This demo runs the extension's real content script with a small stand-in for the browser APIs, so what you

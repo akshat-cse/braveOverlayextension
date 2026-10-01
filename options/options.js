@@ -148,21 +148,21 @@
       if (!clearArmed) {
         clearArmed = true;
         el.clear.classList.add('armed');
-        el.clear.textContent = 'Click again to erase every saved note';
+        el.clear.textContent = 'Click again to erase every note';
         clearTimeout(clearTimer);
         clearTimer = setTimeout(function () {
           clearArmed = false;
           el.clear.classList.remove('armed');
-          el.clear.textContent = 'Clear the saved note text';
+          el.clear.textContent = 'Clear all notes on every page';
         }, 4000);
         return;
       }
       clearTimeout(clearTimer);
       clearArmed = false;
       el.clear.classList.remove('armed');
-      el.clear.textContent = 'Clear the saved note text';
+      el.clear.textContent = 'Clear all notes on every page';
       try {
-        chrome.storage.local.set({ [C.STORAGE.text]: '' }, function () { void chrome.runtime.lastError; });
+        chrome.storage.local.set({ [C.STORAGE.blocks]: { version: C.BLOCKS_VERSION, blocks: [] }, [C.STORAGE.legacyText]: '' }, function () { void chrome.runtime.lastError; });
       } catch (err) { /* ignore */ }
     });
 
