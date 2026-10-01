@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Overlay Ink</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header class="head">
+    <img class="logo" src="../icons/icon32.png" alt="" width="32" height="32">
+    <div class="headText">
+      <h1>Overlay Ink</h1>
+      <p id="subtitle">A transparent note on top of the page</p>
+    </div>
+  </header>
+
+  <div class="switchRow">
+    <label class="switch">
+      <input type="checkbox" id="onOff">
+      <span class="track" aria-hidden="true"><span class="knob"></span></span>
+      <span class="srOnly">Show the overlay on this tab</span>
+    </label>
+    <div class="switchText">
+      <strong id="onOffLabel">Overlay is off</strong>
+      <span id="onOffHint">Turn it on to write on this page</span>
+    </div>
+  </div>
+
+  <p class="banner" id="banner" hidden></p>
+
+  <section class="card">
+    <div class="row">
+      <span class="label">Mode</span>
+      <div class="seg" id="modeSeg" role="group" aria-label="Mode">
+        <button type="button" data-mode="edit">Edit</button>
+        <button type="button" data-mode="view">View</button>
+      </div>
+    </div>
+
+    <div class="row">
+      <span class="label">Ink colour</span>
+      <div class="swatches" id="swatches"></div>
+    </div>
+
+    <div class="row">
+      <span class="label">Size</span>
+      <div class="control">
+        <input type="range" id="size" min="12" max="240" step="1">
+        <b id="sizeVal" class="val">44px</b>
+      </div>
+    </div>
+
+    <div class="row">
+      <span class="label">Font</span>
+      <select id="font" class="select"></select>
+    </div>
+
+    <div class="row">
+      <span class="label">Background</span>
+      <div class="control">
+        <input type="range" id="bg" min="0" max="100" step="1">
+        <b id="bgVal" class="val">0%</b>
+      </div>
+    </div>
+
+    <div class="row">
+      <span class="label">Text outline</span>
+      <input type="checkbox" id="shadow" class="check">
+    </div>
+  </section>
+
+  <p class="note">Only the text is drawn on the page — the overlay itself stays fully transparent. Background above 0% adds a faint panel behind the note.</p>
+
+  <div class="actions">
+    <button type="button" class="btn" id="clear">Clear note text</button>
+    <button type="button" class="btn" id="reset">Reset settings</button>
+  </div>
+
+  <footer class="foot">
+    <p>Toggle from the toolbar icon or <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>O</kbd>.</p>
+    <button type="button" class="link" id="shortcuts">Change keyboard shortcut</button>
+    <p class="fine" id="shortcutNote" hidden>Open <code>brave://extensions/shortcuts</code> and find “Overlay Ink”.</p>
+    <p class="fine">Edit mode pauses the page so you can write; View mode leaves the note visible and keeps the page clickable. <kbd>Esc</kbd> in the note switches to View.</p>
+  </footer>
+
+  <script src="../common.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

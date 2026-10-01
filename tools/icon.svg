@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" role="img" aria-label="Overlay Ink">
+  <defs>
+    <linearGradient id="plate" x1="10" y1="6" x2="118" y2="122" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#6366f1"/>
+      <stop offset=".52" stop-color="#8b5cf6"/>
+      <stop offset="1" stop-color="#d946ef"/>
+    </linearGradient>
+    <linearGradient id="sheen" x1="0" y1="4" x2="0" y2="124" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff" stop-opacity=".34"/>
+      <stop offset=".6" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <rect x="4" y="4" width="120" height="120" rx="31" fill="url(#plate)"/>
+  <rect x="4" y="4" width="120" height="120" rx="31" fill="url(#sheen)"/>
+  <path d="M24 86c12-30 23-34 30-13 6 18 12 22 19 4 6-15 14-25 27-29"
+        fill="none" stroke="#ffffff" stroke-opacity=".95" stroke-width="11"
+        stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="101" cy="47" r="6.5" fill="#ffffff" fill-opacity=".92"/>
+</svg>

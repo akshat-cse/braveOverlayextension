@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Overlay Ink — Options</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <main class="page">
+    <header class="head">
+      <img src="../icons/icon128.png" alt="" width="56" height="56" class="logo">
+      <div>
+        <h1>Overlay Ink</h1>
+        <p class="tag">A transparent note you can write on top of any page.</p>
+      </div>
+    </header>
+
+    <section class="panel">
+      <h2>How it works</h2>
+      <ol class="steps">
+        <li>Click the <strong>Overlay Ink icon</strong> in the toolbar (or press <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>O</kbd>) on any page.</li>
+        <li>The overlay opens in <strong>Edit</strong> mode, with a small toolbar at the top: pick a colour, size, font and background, then start typing.</li>
+        <li>Switch to <strong>View</strong> mode to keep the note on screen while you use the page normally. <kbd>Esc</kbd> inside the note does the same thing.</li>
+        <li>Click the toolbar icon again, or press <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>H</kbd>, to hide it. Your text is kept and reappears next time.</li>
+      </ol>
+      <p class="hint">In Edit mode the page underneath stops responding to clicks so nothing moves while you write — that is deliberate. In View mode every click goes to the page as usual, except on the small toolbar itself.</p>
+    </section>
+
+    <section class="panel">
+      <h2>Defaults for new overlays</h2>
+      <p class="sub">These apply everywhere and stay the way you set them.</p>
+
+      <div class="row">
+        <span class="label">Start in</span>
+        <div class="seg" id="modeSeg" role="group" aria-label="Mode">
+          <button type="button" data-mode="edit">Edit</button>
+          <button type="button" data-mode="view">View</button>
+        </div>
+      </div>
+
+      <div class="row">
+        <span class="label">Ink colour</span>
+        <div class="swatches" id="swatches"></div>
+      </div>
+
+      <div class="row">
+        <span class="label">Text size</span>
+        <div class="control">
+          <input type="range" id="size" min="12" max="240" step="1">
+          <b id="sizeVal" class="val">44px</b>
+        </div>
+      </div>
+
+      <div class="row">
+        <span class="label">Font</span>
+        <select id="font" class="select"></select>
+      </div>
+
+      <div class="row">
+        <span class="label">Panel behind the note</span>
+        <div class="control">
+          <input type="range" id="bg" min="0" max="100" step="1">
+          <b id="bgVal" class="val">0%</b>
+        </div>
+      </div>
+
+      <div class="row">
+        <span class="label">Text outline</span>
+        <input type="checkbox" id="shadow" class="check">
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Keyboard shortcuts</h2>
+      <ul class="keys">
+        <li><kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>O</kbd><span>Show or hide the overlay (same as clicking the icon)</span></li>
+        <li><kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>H</kbd><span>Hide the overlay while it is open</span></li>
+        <li><kbd>Esc</kbd><span>While typing: leave Edit mode and go to View</span></li>
+      </ul>
+      <button type="button" class="btn" id="shortcuts">Change the toggle shortcut</button>
+      <p class="hint" id="shortcutNote" hidden>Open <code>brave://extensions/shortcuts</code> and look for “Overlay Ink”.</p>
+    </section>
+
+    <section class="panel">
+      <h2>Your data</h2>
+      <p class="sub">The note text and these settings are stored locally in your browser profile. Nothing is uploaded anywhere.</p>
+      <div class="actions">
+        <button type="button" class="btn danger" id="clear">Clear the saved note text</button>
+        <button type="button" class="btn" id="reset">Reset settings to defaults</button>
+      </div>
+    </section>
+
+    <footer class="foot">
+      <p>Overlay Ink v0.1.0 · Works in Brave, Chrome, Edge and other Chromium browsers (Manifest V3).</p>
+      <p>Handwriting font: <em>Patrick Hand</em> by Patrick Wagesreiter, licensed under the SIL Open Font License 1.1 (see <code>fonts/OFL.txt</code>).</p>
+    </footer>
+  </main>
+
+  <script src="../common.js"></script>
+  <script src="options.js"></script>
+</body>
+</html>

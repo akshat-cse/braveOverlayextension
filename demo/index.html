@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Overlay Ink — live demo</title>
+  <link rel="stylesheet" href="demo.css">
+</head>
+<body>
+  <!-- A stand-in for the browser: the same click the toolbar icon makes. -->
+  <div class="browserChrome">
+    <div class="dots"><i></i><i></i><i></i></div>
+    <div class="tabs"></div>
+    <div class="urlBar">
+      <span class="lock">&#128274;</span>
+      <span class="url">example.com/research/reading-notes</span>
+    </div>
+    <button type="button" class="toolbarIcon" id="toolbarIcon" title="Overlay Ink — click to write on this page (Alt+Shift+O)">
+      <img src="../icons/icon32.png" alt="Overlay Ink" width="20" height="20">
+      <span class="badge" id="badge" hidden>EDIT</span>
+    </button>
+  </div>
+
+  <main class="page">
+    <article class="card">
+      <p class="kicker">Live demo</p>
+      <h1>This page is pretending to be a website</h1>
+      <p class="lede">
+        Click the purple icon in the bar above — that is exactly what the <strong>Overlay Ink</strong> toolbar
+        button does in Brave. The transparent layer appears on top of this page, with a small toolbar of its own.
+      </p>
+
+      <div class="grid">
+        <section>
+          <h2>Try this</h2>
+          <ol>
+            <li><strong>Type</strong> straight away — the overlay opens in Edit mode and the caret is already in place.</li>
+            <li>Pick an <strong>ink colour</strong>, size, font or background from the top toolbar.</li>
+            <li>Hit <kbd>Esc</kbd> or click <strong>View</strong> — now the note stays put and this page becomes clickable again.</li>
+            <li>Click the icon again (or press <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>H</kbd>) to hide it. Your text is remembered.</li>
+          </ol>
+        </section>
+        <section>
+          <h2>What it is</h2>
+          <ul>
+            <li>A fully transparent layer — only your text is drawn, nothing else.</li>
+            <li>The note follows you to every site and every tab, so you can jot something down while reading.</li>
+            <li>Everything stays on your machine: the text lives in the extension's local storage.</li>
+          </ul>
+        </section>
+      </div>
+
+      <h2>Why the page stops responding in Edit mode</h2>
+      <p>
+        While you write, clicks have to reach the note instead of the links underneath, otherwise the page would
+        navigate away mid-sentence. That is what <strong>Edit</strong> mode does. Switch to <strong>View</strong>
+        and every click goes back to the page, so you can keep reading, scrolling and clicking with the note
+        floating on top of everything.
+      </p>
+      <p>
+        The toolbar at the top of the overlay stays clickable in both modes, and it fades out of the way in
+        View mode until you hover over it.
+      </p>
+
+      <h2>Built for reading</h2>
+      <p>
+        Long passages of text are here on purpose: colour, size and the text outline option exist because a note
+        needs to stay readable over a white article, a dark terminal or a photo. Set the background slider above
+        0% if you want a faint panel behind the words.
+      </p>
+      <p class="muted">
+        This demo runs the extension's real content script with a small stand-in for the browser APIs, so what you
+        see in the overlay is the shipped behaviour. In a real installation the toolbar icon in Brave toggles it
+        on any page (browser pages like <code>brave://settings</code> are off limits, as always for extensions).
+      </p>
+
+      <div class="footer">
+        <span>Overlay Ink v0.1.0</span>
+        <span>Manifest V3 · Brave, Chrome, Edge</span>
+      </div>
+    </article>
+  </main>
+
+  <!-- Stand-in for the browser's extension APIs so the real content script can run
+       on an ordinary page. Written before the script it has to serve. -->
+  <script src="demo-browser-shim.js"></script>
+  <script src="../common.js"></script>
+  <script src="../content/overlay.js"></script>
+  <script src="demo.js"></script>
+</body>
+</html>
