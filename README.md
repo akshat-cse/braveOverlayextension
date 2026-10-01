@@ -150,7 +150,8 @@ A few decisions worth knowing about:
 
 ```bash
 npm install        # jsdom + resvg, dev only — the extension itself has no dependencies
-npm test           # 103 headless checks: the canvas model, styles, moving, deleting, sync
+npm test           # headless checks: the canvas model, styles, moving, deleting, sync
+npm run test:preview  # check demo cache headers and fresh responses
 npm run icons      # regenerate icons/*.png from tools/icon.svg
 python3 tools/preview-server.py 8080   # serve the demo at http://localhost:8080/
 ```
@@ -166,7 +167,8 @@ message flow the demo page uses.
 `demo/index.html` runs the **real** content script on an ordinary web page with a small
 stand-in for the browser APIs, so you can try the whole thing before installing anything:
 the pretend browser bar at the top has a clickable Overlay Ink icon that behaves exactly
-like the toolbar button, badge and all.
+like the toolbar button, badge and all. The demo displays the current version, uses
+versioned asset URLs, and the preview server disables caching so a reload picks up changes.
 
 ## Licence
 

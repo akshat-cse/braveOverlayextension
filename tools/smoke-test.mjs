@@ -532,6 +532,15 @@ section('demo page (demo/index.html) boots the real content script');
     else win.addEventListener('load', resolve);
   });
 
+  const version = JSON.parse(readFileSync(join(root, 'manifest.json'), 'utf8')).version;
+  check('demo: visibly identifies the current canvas build',
+    win.document.querySelector('.kicker').textContent.includes(`v${version}`) &&
+    win.document.querySelector('.kicker').textContent.includes('canvas') &&
+    win.document.querySelector('.footer').textContent.includes(`v${version}`));
+  const assets = Array.from(win.document.querySelectorAll('script[src], link[rel="stylesheet"], img[src]'));
+  check('demo: asset URLs bypass older cached builds', assets.every((asset) =>
+    new URL(asset.src || asset.href).searchParams.get('v') === version));
+
   check('demo: shared module loaded', !!win.__overlayInkCommon);
   check('demo: content script loaded', typeof win.__overlayInkToggle === 'function');
 
@@ -541,6 +550,8 @@ section('demo page (demo/index.html) boots the real content script');
   check('demo: clicking the toolbar icon opens the overlay', !!host);
   check('demo: badge follows the state', win.document.getElementById('badge').hidden === false);
   check('demo: the canvas is there to write on', !!host.shadowRoot.querySelector('.canvas'));
+  check('demo: full colour picker and hex control are loaded',
+    !!host.shadowRoot.querySelector('input[type="color"]') && !!host.shadowRoot.querySelector('.hexInput'));
 
   icon.dispatchEvent(new win.MouseEvent('click', { bubbles: true }));
   check('demo: clicking again hides it', win.document.querySelector('overlay-ink') === null);

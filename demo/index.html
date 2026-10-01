@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Overlay Ink — live demo</title>
-  <link rel="stylesheet" href="demo.css">
+  <title>Overlay Ink v0.2.0 — canvas demo</title>
+  <link rel="stylesheet" href="demo.css?v=0.2.0">
 </head>
 <body>
   <!-- A stand-in for the browser: the same click the toolbar icon makes. -->
@@ -16,14 +16,14 @@
       <span class="url">example.com/research/reading-notes</span>
     </div>
     <button type="button" class="toolbarIcon" id="toolbarIcon" title="Overlay Ink — click to write on this page (Alt+Shift+O)">
-      <img src="../icons/icon32.png" alt="Overlay Ink" width="20" height="20">
+      <img src="../icons/icon32.png?v=0.2.0" alt="Overlay Ink" width="20" height="20">
       <span class="badge" id="badge" hidden>EDIT</span>
     </button>
   </div>
 
   <main class="page">
     <article class="card">
-      <p class="kicker">Live demo</p>
+      <p class="kicker">Live demo · v0.2.0 · click-anywhere canvas</p>
       <h1>This page is pretending to be a website</h1>
       <p class="lede">
         Click the purple icon in the bar above — that is exactly what the <strong>Overlay Ink</strong> toolbar
@@ -79,7 +79,7 @@
       </p>
 
       <div class="footer">
-        <span>Overlay Ink v0.1.0</span>
+        <span>Overlay Ink v0.2.0</span>
         <span>Manifest V3 · Brave, Chrome, Edge</span>
       </div>
     </article>
@@ -87,9 +87,9 @@
 
   <!-- Stand-in for the browser's extension APIs so the real content script can run
        on an ordinary page. Written before the script it has to serve. -->
-  <script src="demo-browser-shim.js"></script>
-  <script src="../common.js"></script>
-  <script src="../content/overlay.js"></script>
-  <script src="demo.js"></script>
+  <script src="demo-browser-shim.js?v=0.2.0"></script>
+  <script src="../common.js?v=0.2.0"></script>
+  <script src="../content/overlay.js?v=0.2.0"></script>
+  <script src="demo.js?v=0.2.0"></script>
 </body>
 </html>

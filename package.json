@@ -5,7 +5,8 @@
   "description": "Transparent screen overlay / ink layer extension for Brave and Chrome.",
   "scripts": {
     "test": "node tools/smoke-test.mjs",
-    "icons": "node tools/make-icons.mjs"
+    "icons": "node tools/make-icons.mjs",
+    "test:preview": "python3 tools/test-preview-server.py"
   },
   "devDependencies": {
     "@resvg/resvg-js": "^2.6.2",
