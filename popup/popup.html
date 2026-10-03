@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Overlay Ink</title>
+  <link rel="stylesheet" href="popup.css?v=0.3.0">
+</head>
+<body>
+  <header class="head">
+    <img class="logo" src="../icons/icon32.png?v=0.3.0" alt="" width="32" height="32">
+    <div class="headText">
+      <h1>Overlay Ink</h1>
+      <p class="subtitle">Your page. Your canvas.</p>
+    </div>
+    <button type="button" class="close" id="close" aria-label="Close popup" title="Close popup — keep the overlay as it is">&#10005;</button>
+  </header>
+
+  <div class="switchRow">
+    <div class="switchText">
+      <strong id="onOffLabel">Connecting to this page…</strong>
+      <span id="onOffHint">Controls live here, not on your canvas</span>
+    </div>
+    <label class="switch">
+      <input type="checkbox" id="onOff" role="switch" aria-label="Overlay on or off for this tab" disabled>
+      <span class="track" aria-hidden="true"><span class="knob"></span></span>
+    </label>
+  </div>
+
+  <p class="banner" id="banner" role="status" hidden></p>
+
+  <fieldset id="controls" disabled>
+    <legend class="srOnly">Overlay controls</legend>
+    <div class="modeRow">
+      <span class="label">Mode</span>
+      <div class="seg" id="modeSeg" role="group" aria-label="Overlay mode">
+        <button type="button" data-mode="edit" aria-pressed="true">Edit</button>
+        <button type="button" data-mode="view" aria-pressed="false">View</button>
+      </div>
+    </div>
+
+    <div class="targetRow">
+      <span class="sectionLabel" id="styleTarget">Style for new notes</span>
+      <button type="button" class="link" id="newNotes" hidden>New notes instead</button>
+    </div>
+
+    <section class="card" aria-label="Writing style">
+      <div class="colourRow">
+        <div class="rowHeading">
+          <span class="label">Ink colour</span>
+          <label class="hexLabel" for="hexColor">Hex <input id="hexColor" class="hexInput" type="text" maxlength="7" spellcheck="false" autocomplete="off" aria-label="Ink colour hex code" placeholder="#ff8800"></label>
+        </div>
+        <div class="swatches" id="swatches" role="group" aria-label="Ink colour presets and custom picker"></div>
+      </div>
+
+      <div class="row">
+        <label class="label" for="size">Text size</label>
+        <div class="control">
+          <input type="range" id="size" min="12" max="240" step="1">
+          <output id="sizeVal" class="val" for="size">44px</output>
+        </div>
+      </div>
+
+      <div class="row">
+        <label class="label" for="font">Font</label>
+        <select id="font" class="select"></select>
+      </div>
+
+      <div class="row">
+        <label class="label" for="bg" title="0% keeps the canvas completely transparent">Background</label>
+        <div class="control">
+          <input type="range" id="bg" min="0" max="100" step="1">
+          <output id="bgVal" class="val" for="bg">0%</output>
+        </div>
+      </div>
+
+      <div class="row">
+        <label class="label" for="shadow">Text outline</label>
+        <input type="checkbox" id="shadow" class="check">
+      </div>
+    </section>
+
+    <div class="actions">
+      <button type="button" class="btn" id="clear">Clear all notes</button>
+      <button type="button" class="btn" id="reset">Reset defaults</button>
+    </div>
+  </fieldset>
+
+  <p class="note" id="usageHint">Turn on the overlay, close this popup, then click anywhere and type. Reopen the icon whenever you need the controls.</p>
+  <button type="button" class="btn primary" id="done">Close popup</button>
+
+  <footer class="foot">
+    <button type="button" class="link" id="options">Options &amp; shortcuts</button>
+    <span>v0.3.0 · saved locally</span>
+  </footer>
+
+  <!-- The bridge is inert in Brave. It only connects the same popup to the web demo. -->
+  <script src="../demo/demo-popup-shim.js?v=0.3.0"></script>
+  <script src="../common.js?v=0.3.0"></script>
+  <script src="popup.js?v=0.3.0"></script>
+</body>
+</html>

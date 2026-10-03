@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Overlay Ink v0.3.0 — popup canvas demo</title>
+  <link rel="stylesheet" href="demo.css?v=0.3.0">
+</head>
+<body>
+  <!-- This strip represents Brave's toolbar, not an on-page overlay bar. -->
+  <div class="browserChrome" data-version="0.3.0">
+    <div class="dots"><i></i><i></i><i></i></div>
+    <div class="urlBar">
+      <span class="lock">&#128274;</span>
+      <span class="url">example.com/research/reading-notes</span>
+    </div>
+    <button type="button" class="toolbarIcon" id="toolbarIcon" title="Overlay Ink — open controls (Alt+Shift+O)" aria-label="Open Overlay Ink popup" aria-expanded="false" aria-controls="demoPopup" aria-haspopup="dialog">
+      <img src="../icons/icon32.png?v=0.3.0" alt="" width="20" height="20">
+      <span class="badge" id="badge" hidden>EDIT</span>
+    </button>
+  </div>
+  <section class="demoPopup" id="demoPopup" role="dialog" aria-label="Overlay Ink popup" hidden></section>
+  <p class="demoNotice" id="demoNotice" role="status" hidden></p>
+
+  <main class="page">
+    <article class="card">
+      <p class="kicker">Live demo · v0.3.0 · popup controls · click-anywhere canvas</p>
+      <h1>Your whole page is the canvas.</h1>
+      <p class="lede">
+        Click the purple extension icon at the top right. A standard dropdown popup holds
+        <strong>On/Off, Edit/View and all your writing controls</strong>. Turn the overlay on,
+        then close the popup: nothing stays in the way of your notes.
+      </p>
+
+      <div class="grid">
+        <section>
+          <h2>Try the new popup</h2>
+          <ol>
+            <li>Click the purple icon, switch <strong>On</strong>, and choose your colour, size and font.</li>
+            <li>Choose <strong>Done · write on page</strong>, use the popup’s &#10005;, or click outside it. The popup closes, but the canvas stays on.</li>
+            <li><strong>Click anywhere</strong> and type there. Click another spot for a separate note. There is no floating bar and no reserved area at the top.</li>
+            <li>To restyle a note, select it and reopen the icon. Choose <strong>New notes instead</strong> if you want to set defaults without changing that note.</li>
+            <li>Reopen the popup for <strong>View</strong> or <strong>Off</strong>. Closing the popup never turns the overlay off.</li>
+          </ol>
+        </section>
+        <section>
+          <h2>Still your transparent canvas</h2>
+          <ul>
+            <li>Only your writing is drawn. The background starts at <strong>0%</strong>, completely transparent.</li>
+            <li>Drag a note’s <strong>&#10287;</strong> grip to move it, or use its <strong>&#10005;</strong> to delete it. These small handles only appear while editing.</li>
+            <li>Eight colours, a rainbow custom picker and a typed hex colour. Each note keeps its own colour, size and font.</li>
+            <li><kbd>Esc</kbd> deselects a note; another <kbd>Esc</kbd> switches to View. <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>H</kbd> hides the overlay.</li>
+          </ul>
+        </section>
+      </div>
+
+      <h2 id="sample-section">Edit to write. View to use the page.</h2>
+      <p>
+        Edit mode gives your clicks to the canvas so you can write without accidentally following a link.
+        View mode makes every part of the overlay click-through: keep your notes visible and continue
+        reading, scrolling or using the website underneath. There is no on-page control bar in either mode.
+      </p>
+      <button type="button" class="sampleAction" id="sampleAction">Try this page button in View mode</button>
+      <p class="muted">Switch to View in the popup, close it, then try the button or <a href="#sample-section">this ordinary page link</a>.</p>
+
+      <h2>Write without getting boxed in.</h2>
+      <p>
+        A reminder beside a paragraph, a question in the margin, a title in the corner. Each click places an
+        independent note exactly where you want it. Reopening the popup reads your current settings and
+        selection; your note stays selected even when you move from the page into the popup.
+      </p>
+      <p class="muted">
+        This test site loads the extension’s real canvas <em>and</em> its real popup, using a small local browser
+        API bridge. In Brave, the icon lives in the browser toolbar and the popup closes normally when you
+        click back onto the page. Browser pages such as <code>brave://settings</code> cannot host extensions.
+      </p>
+
+      <div class="footer">
+        <span>Overlay Ink v0.3.0 · popup controls</span>
+        <span>Manifest V3 · Brave, Chrome, Edge</span>
+      </div>
+    </article>
+  </main>
+
+  <script src="demo-browser-shim.js?v=0.3.0"></script>
+  <script src="../common.js?v=0.3.0"></script>
+  <script src="../content/overlay.js?v=0.3.0"></script>
+  <script src="demo.js?v=0.3.0"></script>
+</body>
+</html>
